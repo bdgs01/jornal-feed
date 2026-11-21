@@ -131,6 +131,7 @@
   <button class="chip" data-modo="curto">Curtos</button>
   <button class="chip" data-modo="video">Vídeos</button>
   <button class="chip" data-modo="radio">📻 Rádio</button>
+  <button class="chip" data-modo="estante">📚</button>
   <button class="chip live" id="botao-live">🔴 Live</button>
   <span class="sep"></span>
   <button class="chip" id="pausa">⏸</button>
@@ -162,12 +163,15 @@ const LIVE_MAX_MIN = 15;         // no modo Live, video longo passa pro proximo 
 const DIAS_LEMBRAR_VISTOS = 14;
 const ATUALIZAR_MIN = 15;        // de quanto em quanto tempo busca novidades (so com a pagina aberta)
 const LIMITE_DIAS = 10;          // ignora videos mais velhos que isso
-const MAX_ITENS = 5000;          // teto do acervo
+const MAX_ITENS = 8000;          // teto do acervo
+// 📚 fontes de cultura, ciencia, livros e filosofia (ficam num arquivo separado e so aparecem no 📚)
+const FONTES_EXTRAS = ['fontes-estante.json'];
+const PESOS_ESTANTE = { br: .60, pt: .20, es: .10, en: .10 };   // brasileiros, lingua portuguesa, espanhol, ingles
 const SIMULTANEAS = 8;           // quantas fontes busca ao mesmo tempo
 const TEMPO_LIMITE_MS = 15000;   // desiste de uma busca que demora mais que isso
 // ===========================================
 
-const BANDEIRA = { brasil: '🇧🇷', estados: '📍', poder: '🏛️', eua: '🇺🇸', china: '🇨🇳', russia: '🇷🇺', europa: '🇪🇺', latam: '🌎', outros: '🌍' };
+const BANDEIRA = { cultura: '📚', brasil: '🇧🇷', estados: '📍', poder: '🏛️', eua: '🇺🇸', china: '🇨🇳', russia: '🇷🇺', europa: '🇪🇺', latam: '🌎', outros: '🌍' };
 const CHAVE = 'jornalfeed:v2';
 
 let itens = [], porId = {}, modo = 'tudo', ativo = null, ytPronto = false, pendente = null;
@@ -218,6 +222,9 @@ function pesoRecencia(v) {
   return Math.max(Math.pow(.5, horas / MEIA_VIDA_H), .03);
 }
 function passa(v, m) {
+  // 📚 so mostra a estante, e so video vertical; o resto do app nunca mostra a estante
+  if (m === 'estante') return v.estante === true && v.tipo === 'curto';
+  if (v.estante) return false;
   switch (m) {
     case 'poder': return v.regiao === 'poder';
     case 'brasil': return v.regiao === 'brasil' || v.regiao === 'estados' || v.regiao === 'poder';
@@ -240,7 +247,8 @@ function gerar(n, m, fila) {
     const livres = itens.filter(v => passa(v, m) && !naFila.has(v.id)).sort((a, b) => b.ts - a.ts);
     return livres.filter(v => !estado.vistos[v.id]).concat(livres.filter(v => estado.vistos[v.id])).slice(0, n).map(v => v.id);
   }
-  const pesos = m === 'brasil' ? PESOS_BRASIL : PESOS_REGIAO;
+  const pesos = m === 'brasil' ? PESOS_BRASIL : m === 'estante' ? PESOS_ESTANTE : PESOS_REGIAO;
+  const chave = v => m === 'estante' ? (v.grupo || 'br') : v.regiao;   // na estante, o sorteio e por idioma
   let pool = itens.filter(v => passa(v, m) && !naFila.has(v.id) && !estado.vistos[v.id]);
   if (pool.length < n) {
     const reprise = itens.filter(v => passa(v, m) && !naFila.has(v.id) && estado.vistos[v.id])
@@ -249,13 +257,13 @@ function gerar(n, m, fila) {
   }
   const grupos = {};
   for (const v of pool) {
-    const r = grupos[v.regiao] = grupos[v.regiao] || {};
+    const r = grupos[chave(v)] = grupos[chave(v)] || {};
     (r[v.veiculo] = r[v.veiculo] || []).push(v);
   }
   for (const r in grupos) for (const f in grupos[r]) grupos[r][f].sort((a, b) => b.ts - a.ts);
 
   const ultimos = fila.ordem.slice(-JANELA_SEM_REPETIR).map(id => porId[id]).filter(Boolean);
-  const histFonte = ultimos.map(v => v.veiculo), histRegiao = ultimos.map(v => v.regiao);
+  const histFonte = ultimos.map(v => v.veiculo), histRegiao = ultimos.map(chave);
   const contagem = {}, saida = [];
 
   while (saida.length < n) {
@@ -349,10 +357,21 @@ function ativar(card) {
   if (!ytPronto) { pendente = card; return; }
   const alvo = document.createElement('div');
   card.querySelector('.palco').appendChild(alvo);
+  // Vigia do Live: os Shorts embutidos repetem sozinhos e nunca avisam que acabaram.
+  // A cada meio segundo, se o video chegou no fim (ou voltou pro comeco), pula pro proximo.
+  card._ultimo = 0;
+  card._vigia = setInterval(() => {
+    if (!live || ativo !== card || !card._player || !card._player.getDuration) return;
+    try {
+      const d = card._player.getDuration(), t = card._player.getCurrentTime();
+      if (d > 0 && (t >= d - 0.6 || (card._ultimo > 2 && t < card._ultimo - 2))) { clearInterval(card._vigia); proximo(card); return; }
+      card._ultimo = t;
+    } catch {}
+  }, 500);
   card._player = new YT.Player(alvo, {
     videoId: v.id,
     playerVars: { autoplay: 1, mute: estado.som ? 0 : 1, playsinline: 1, rel: 0, controls: 0, iv_load_policy: 3,
-                  fs: 0, disablekb: 1, cc_load_policy: 0, origin: location.origin },
+                  fs: 0, disablekb: 1, cc_load_policy: 0, loop: 0, origin: location.origin },
     events: {
       onReady: e => {
         estado.som ? e.target.unMute() : e.target.mute();
@@ -383,6 +402,7 @@ function ativar(card) {
 function desativar(card) {
   clearTimeout(timerLive); timerLive = null;
   if (!card) return;
+  clearInterval(card._vigia);
   if (card._player) { try { card._player.destroy(); } catch {} card._player = null; }
   card.querySelectorAll('.palco iframe, .palco > div:not(.ondas)').forEach(n => n.remove());
   const a = card.querySelector('audio');
@@ -624,6 +644,9 @@ async function coletarTudo() {
     if (!fontes.length) {
       const r = await fetch('fontes.json', { cache: 'no-store' });
       fontes = await r.json();
+      for (const extra of FONTES_EXTRAS) {
+        try { const rx = await fetch(extra, { cache: 'no-store' }); if (rx.ok) fontes.push(...await rx.json()); } catch {}
+      }
     }
     const corte = Date.now() - LIMITE_DIAS * 86400e3;
     const todos = [], status = [];
@@ -717,7 +740,7 @@ document.addEventListener('visibilitychange', () => {
 // ⚙ status das fontes, dentro da propria pagina
 const NOMES_REGIAO = {
   brasil: '🇧🇷 Brasil', estados: '📍 Estados', poder: '🏛️ Brasília', eua: '🇺🇸 Estados Unidos', china: '🇨🇳 China',
-  russia: '🇷🇺 Rússia', europa: '🇪🇺 Europa', latam: '🌎 América Latina', outros: '🌍 Outros'
+  russia: '🇷🇺 Rússia', europa: '🇪🇺 Europa', latam: '🌎 América Latina', outros: '🌍 Outros', cultura: '📚 Estante'
 };
 function abrirStatus() {
   const grupos = {};
