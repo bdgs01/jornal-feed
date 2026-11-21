@@ -29,9 +29,12 @@
   .card.video .palco { width: min(100vw, calc(100dvh * 16 / 9)); aspect-ratio: 16 / 9; }
   .palco img, .palco iframe { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border: 0; }
   .card.video .palco img { object-fit: contain; }
-  .toque { position: absolute; inset: 0; z-index: 3; display: none; }
-  body.live .toque { display: block; }
+  /* camada de toque: cobre o card inteiro. Toque = mostra/esconde os botoes; deslizar = troca de video.
+     Tambem impede que o player do YouTube mostre os controles dele por cima do video. */
+  .toque { position: absolute; inset: 0; z-index: 3; }
 
+  .info { transition: opacity .3s; }
+  body:not(.ui) .info { opacity: 0; }
   .info { position: relative; width: 100%; max-width: min(100vw, calc(100dvh * 16 / 9)); padding: 18px 20px 24px; z-index: 2; }
   .card.curto .info { position: absolute; left: 0; right: 0; bottom: 0; max-width: none; padding: 60px 20px 34px;
                       background: linear-gradient(transparent, rgba(0,0,0,.88)); pointer-events: none; }
@@ -58,6 +61,7 @@
   @keyframes onda { 0%, 100% { height: 18% } 50% { height: 100% } }
   .card.audio audio { width: 100%; max-width: 520px; }
 
+  .bloqueado { z-index: 5 !important; }
   .bloqueado { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center;
                padding: 24px; background: rgba(0,0,0,.82); z-index: 4; line-height: 1.6; }
   .bloqueado a { color: var(--ouro); font-weight: 600; }
@@ -73,13 +77,14 @@
   .chip.live.ativo { background: var(--vermelho); border-color: var(--vermelho); color: #fff; }
   .sep { flex: none; width: 1px; height: 22px; background: var(--borda); margin: 0 2px; }
 
-  body.live #topo.oculto { opacity: 0; pointer-events: none; }
+  body:not(.ui) #topo, body:not(.ui) #novas, body:not(.ui) #progresso, body:not(.ui) #selo-live { opacity: 0; pointer-events: none; }
+  #novas, #progresso, #selo-live { transition: opacity .3s; }
   #selo-live { position: fixed; z-index: 11; top: max(14px, env(safe-area-inset-top)); right: 14px; display: none; align-items: center; gap: 8px;
                padding: 6px 12px; border-radius: 999px; background: var(--vermelho); font-size: 13px; font-weight: 700; letter-spacing: .6px; }
   #selo-live::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: #fff; animation: pulso 1.4s infinite; }
   @keyframes pulso { 50% { opacity: .25 } }
   body.live #selo-live { display: flex; }
-  body.live #topo:not(.oculto) ~ #selo-live { display: none; }
+  body.live.ui #selo-live { display: none; }
 
   #novas { position: fixed; z-index: 12; top: 64px; left: 50%; transform: translateX(-50%); display: none;
            border: 0; border-radius: 999px; padding: 9px 18px; background: var(--vermelho); color: #fff;
@@ -104,6 +109,11 @@
   #painel a { color: var(--ouro); }
   #painel .linha { color: #888; font-size: 14px; }
 
+  #icone-play { position: fixed; z-index: 9; left: 50%; top: 50%; width: 84px; height: 84px; margin: -42px 0 0 -42px;
+                border-radius: 50%; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center;
+                font-size: 38px; opacity: 0; pointer-events: none; transition: opacity .35s; }
+  #icone-play.mostrar { opacity: 1; transition: none; }
+
   #aviso { position: fixed; inset: 0; display: flex; flex-direction: column; gap: 14px; align-items: center; justify-content: center;
            text-align: center; padding: 24px; color: var(--suave); z-index: 5; }
   .girando { width: 34px; height: 34px; border-radius: 50%; border: 3px solid #333; border-top-color: var(--ouro); animation: gira 1s linear infinite; }
@@ -123,11 +133,14 @@
   <button class="chip" data-modo="radio">📻 Rádio</button>
   <button class="chip live" id="botao-live">🔴 Live</button>
   <span class="sep"></span>
+  <button class="chip" id="pausa">⏸</button>
   <button class="chip" id="som">🔇</button>
+  <button class="chip" id="tela-cheia">⛶</button>
   <button class="chip" id="recarregar">↻</button>
   <button class="chip" id="abrir-status">⚙</button>
 </div>
 <div id="selo-live">AO VIVO</div>
+<div id="icone-play"></div>
 <button id="novas"></button>
 <div id="aviso"><div class="girando"></div><div>Buscando as novidades...</div></div>
 <div id="feed"></div>
@@ -291,15 +304,15 @@ function montarCard(v, pos) {
                 <span class="quando">${haQuanto(v.ts)}</span><div class="titulo">${esc(v.titulo)}</div></div>`;
   if (v.tipo === 'audio') {
     c.innerHTML = `<div class="palco"><div class="ondas"><i></i><i></i><i></i><i></i><i></i></div>
-                   <audio controls preload="none" src="${esc(v.audio)}"></audio><div class="toque"></div></div>${info}`;
+                   <audio controls preload="none" src="${esc(v.audio)}"></audio></div>${info}<div class="toque"></div>`;
   } else {
     const thumbHQ = `https://i.ytimg.com/vi/${v.id}/hqdefault.jpg`;
     const thumb = v.tipo === 'curto' ? `https://i.ytimg.com/vi/${v.id}/oar2.jpg` : thumbHQ;
     c.innerHTML = `<div class="fundo" style="background-image:url('${thumbHQ}')"></div>
                    <div class="palco"><img loading="lazy" src="${thumb}" onerror="this.onerror=null;this.src='${thumbHQ}'" alt="">
-                   <div class="toque"></div></div>${info}`;
+                   </div>${info}<div class="toque"></div>`;
   }
-  c.querySelector('.toque').onclick = mostrarUI;
+  c.querySelector('.toque').onclick = alternarUI;
   return c;
 }
 
@@ -338,7 +351,8 @@ function ativar(card) {
   card.querySelector('.palco').appendChild(alvo);
   card._player = new YT.Player(alvo, {
     videoId: v.id,
-    playerVars: { autoplay: 1, mute: estado.som ? 0 : 1, playsinline: 1, rel: 0, origin: location.origin },
+    playerVars: { autoplay: 1, mute: estado.som ? 0 : 1, playsinline: 1, rel: 0, controls: 0, iv_load_policy: 3,
+                  fs: 0, disablekb: 1, cc_load_policy: 0, origin: location.origin },
     events: {
       onReady: e => {
         estado.som ? e.target.unMute() : e.target.mute();
@@ -370,7 +384,7 @@ function desativar(card) {
   clearTimeout(timerLive); timerLive = null;
   if (!card) return;
   if (card._player) { try { card._player.destroy(); } catch {} card._player = null; }
-  card.querySelectorAll('.palco iframe, .palco > div:not(.toque):not(.ondas)').forEach(n => n.remove());
+  card.querySelectorAll('.palco iframe, .palco > div:not(.ondas)').forEach(n => n.remove());
   const a = card.querySelector('audio');
   if (a) a.pause();
 }
@@ -454,11 +468,52 @@ function alternarLive() {
   if (a) { a.play().catch(() => {}); timerLive = setTimeout(() => proximo(card), LIVE_MAX_MIN * 60e3); }
 }
 
+// ---------- interface limpa ----------
+// Os botoes so aparecem quando voce toca no video, e somem sozinhos depois de 4 segundos.
+// Deslizar pra cima ou pra baixo troca de video sem mostrar nada.
+const UI_SEGUNDOS = 4;
 function mostrarUI() {
-  topo.classList.remove('oculto');
+  document.body.classList.add('ui');
   clearTimeout(timerUI);
-  if (live) timerUI = setTimeout(() => topo.classList.add('oculto'), 4000);
+  timerUI = setTimeout(esconderUI, UI_SEGUNDOS * 1000);
 }
+function esconderUI() { clearTimeout(timerUI); document.body.classList.remove('ui'); }
+function alternarUI() { document.body.classList.contains('ui') ? esconderUI() : mostrarUI(); }
+// mexeu nos botoes do topo: conta o tempo de novo pra eles nao sumirem na sua mao
+topo.addEventListener('pointerdown', () => { if (document.body.classList.contains('ui')) mostrarUI(); });
+
+let timerIcone;
+function piscarIcone(t) {
+  const el = document.getElementById('icone-play');
+  el.textContent = t; el.classList.add('mostrar');
+  clearTimeout(timerIcone); timerIcone = setTimeout(() => el.classList.remove('mostrar'), 500);
+}
+function alternarPausa() {
+  if (!ativo) return;
+  const a = ativo.querySelector('audio');
+  if (a) {
+    if (a.paused) { a.play().catch(() => {}); piscarIcone('▶'); } else { a.pause(); piscarIcone('⏸'); }
+  } else if (ativo._player && ativo._player.getPlayerState) {
+    if (ativo._player.getPlayerState() === 1) { ativo._player.pauseVideo(); piscarIcone('⏸'); }
+    else { ativo._player.playVideo(); piscarIcone('▶'); }
+  }
+}
+document.getElementById('pausa').onclick = alternarPausa;
+
+// ⛶ tela cheia de verdade: some ate a barra do navegador
+function alternarTelaCheia() {
+  if (!document.fullscreenElement) {
+    const el = document.documentElement;
+    (el.requestFullscreen ? el.requestFullscreen({ navigationUI: 'hide' }) : Promise.reject()).catch(() => toast('Este navegador não deixou entrar em tela cheia.'));
+  } else {
+    document.exitFullscreen().catch(() => {});
+  }
+}
+document.getElementById('tela-cheia').onclick = alternarTelaCheia;
+document.addEventListener('fullscreenchange', () => {
+  document.getElementById('tela-cheia').classList.toggle('ativo', !!document.fullscreenElement);
+  setTimeout(() => { if (ativo) ativo.scrollIntoView({ block: 'start' }); }, 200);
+});
 
 // ================= COLETA (o navegador faz o papel do servidor) =================
 // Precisa da extensao de CORS no Firefox: sem ela o navegador nao deixa ler o YouTube.
