@@ -1,0 +1,711 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<meta name="theme-color" content="#000000">
+<title>Jornal Feed</title>
+<style>
+  :root {
+    --ouro: #e8b931; --texto: #f5f5f7; --suave: #a1a1aa; --vidro: rgba(20,20,24,.55);
+    --borda: rgba(255,255,255,.14); --vermelho: #ff3b30;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; background: #000; color: var(--texto); overflow: hidden;
+               font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  button { font: inherit; color: inherit; }
+
+  #feed { height: 100dvh; overflow-y: scroll; scroll-snap-type: y mandatory; overscroll-behavior: contain; scrollbar-width: none; }
+  #feed::-webkit-scrollbar { display: none; }
+
+  .card { height: 100dvh; scroll-snap-align: start; scroll-snap-stop: always; position: relative; overflow: hidden;
+          display: flex; flex-direction: column; justify-content: center; align-items: center; }
+  .fundo { position: absolute; inset: -60px; background-size: cover; background-position: center;
+           filter: blur(42px) brightness(.38) saturate(1.3); transform: scale(1.1); }
+
+  .palco { position: relative; background: #000; overflow: hidden; flex: none; }
+  .card.curto .palco { height: min(100dvh, calc(100vw * 16 / 9)); aspect-ratio: 9 / 16; }
+  .card.video .palco { width: min(100vw, calc(100dvh * 16 / 9)); aspect-ratio: 16 / 9; }
+  .palco img, .palco iframe { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border: 0; }
+  .card.video .palco img { object-fit: contain; }
+  .toque { position: absolute; inset: 0; z-index: 3; display: none; }
+  body.live .toque { display: block; }
+
+  .info { position: relative; width: 100%; max-width: min(100vw, calc(100dvh * 16 / 9)); padding: 18px 20px 24px; z-index: 2; }
+  .card.curto .info { position: absolute; left: 0; right: 0; bottom: 0; max-width: none; padding: 60px 20px 34px;
+                      background: linear-gradient(transparent, rgba(0,0,0,.88)); pointer-events: none; }
+  .selo { display: inline-flex; align-items: center; gap: 7px; padding: 5px 11px 5px 8px; border-radius: 999px;
+          background: var(--vidro); border: 1px solid var(--borda); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+          font-size: 13px; font-weight: 600; letter-spacing: .2px; }
+  .selo .bandeira { font-size: 15px; }
+  .quando { color: var(--suave); font-size: 13px; margin-left: 8px; }
+  .titulo { font-size: clamp(16px, 2.3vw, 21px); line-height: 1.38; margin-top: 10px; font-weight: 600;
+            text-shadow: 0 1px 12px rgba(0,0,0,.7); display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+
+  @media (orientation: landscape) {
+    .card.video .palco { width: min(100vw, calc(100dvh * 16 / 9)); }
+    .card.video .info { position: absolute; left: 0; right: 0; bottom: 0; max-width: none; padding: 60px 28px 26px;
+                        background: linear-gradient(transparent, rgba(0,0,0,.85)); pointer-events: none; }
+    .card.curto .info { right: auto; width: max(260px, calc((100vw - 100dvh * 9 / 16) / 2)); padding: 24px 28px 32px; background: none; }
+  }
+
+  .card.audio .palco { background: none; display: flex; flex-direction: column; align-items: center; gap: 28px; padding: 30px 20px; width: 100%; }
+  .ondas { display: flex; gap: 6px; align-items: flex-end; height: 70px; }
+  .ondas i { width: 9px; border-radius: 5px; background: var(--ouro); animation: onda 1s ease-in-out infinite; }
+  .ondas i:nth-child(2) { animation-delay: .15s } .ondas i:nth-child(3) { animation-delay: .3s }
+  .ondas i:nth-child(4) { animation-delay: .45s } .ondas i:nth-child(5) { animation-delay: .6s }
+  @keyframes onda { 0%, 100% { height: 18% } 50% { height: 100% } }
+  .card.audio audio { width: 100%; max-width: 520px; }
+
+  .bloqueado { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center;
+               padding: 24px; background: rgba(0,0,0,.82); z-index: 4; line-height: 1.6; }
+  .bloqueado a { color: var(--ouro); font-weight: 600; }
+
+  #topo { position: fixed; top: 0; left: 0; right: 0; z-index: 10; display: flex; gap: 8px; align-items: center;
+          padding: max(10px, env(safe-area-inset-top)) 12px 18px; overflow-x: auto; scrollbar-width: none;
+          background: linear-gradient(rgba(0,0,0,.7), transparent); transition: opacity .5s; }
+  #topo::-webkit-scrollbar { display: none; }
+  .chip { flex: none; border: 1px solid var(--borda); background: var(--vidro); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+          border-radius: 999px; padding: 8px 15px; font-size: 14px; font-weight: 500; text-decoration: none; color: var(--texto); }
+  .chip.ativo { background: var(--ouro); color: #111; border-color: var(--ouro); }
+  .chip.live { border-color: rgba(255,59,48,.6); }
+  .chip.live.ativo { background: var(--vermelho); border-color: var(--vermelho); color: #fff; }
+  .sep { flex: none; width: 1px; height: 22px; background: var(--borda); margin: 0 2px; }
+
+  body.live #topo.oculto { opacity: 0; pointer-events: none; }
+  #selo-live { position: fixed; z-index: 11; top: max(14px, env(safe-area-inset-top)); right: 14px; display: none; align-items: center; gap: 8px;
+               padding: 6px 12px; border-radius: 999px; background: var(--vermelho); font-size: 13px; font-weight: 700; letter-spacing: .6px; }
+  #selo-live::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: #fff; animation: pulso 1.4s infinite; }
+  @keyframes pulso { 50% { opacity: .25 } }
+  body.live #selo-live { display: flex; }
+  body.live #topo:not(.oculto) ~ #selo-live { display: none; }
+
+  #novas { position: fixed; z-index: 12; top: 64px; left: 50%; transform: translateX(-50%); display: none;
+           border: 0; border-radius: 999px; padding: 9px 18px; background: var(--vermelho); color: #fff;
+           font-size: 14px; font-weight: 700; box-shadow: 0 6px 24px rgba(0,0,0,.5); }
+  #novas.mostrar { display: block; }
+
+  #progresso { position: fixed; z-index: 12; left: 50%; bottom: 18px; transform: translateX(-50%); display: none;
+               padding: 8px 16px; border-radius: 999px; background: var(--vidro); border: 1px solid var(--borda);
+               backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); font-size: 13px; color: var(--texto); white-space: nowrap; }
+  #progresso.mostrar { display: block; }
+  #toast { position: fixed; z-index: 13; left: 16px; right: 16px; bottom: 60px; display: none; padding: 12px 16px; border-radius: 14px;
+           background: rgba(40,10,10,.92); border: 1px solid rgba(255,59,48,.5); font-size: 14px; line-height: 1.45; text-align: center; }
+  #toast.mostrar { display: block; }
+  #painel { position: fixed; inset: 0; z-index: 20; display: none; overflow-y: auto; background: #0b0b0d; padding: 20px 20px 60px; }
+  #painel.mostrar { display: block; }
+  #painel .caixa { max-width: 760px; margin: auto; }
+  #painel h2 { font-size: 20px; margin: 14px 0 6px; }
+  #painel h3 { margin: 26px 0 8px; font-size: 15px; color: var(--ouro); }
+  #painel li { padding: 7px 0; list-style: none; border-bottom: 1px solid #1d1d22; font-size: 15px; }
+  #painel li span { color: #888; font-size: 13px; margin-left: 4px; }
+  #painel .erro { color: #f88; }
+  #painel a { color: var(--ouro); }
+  #painel .linha { color: #888; font-size: 14px; }
+
+  #aviso { position: fixed; inset: 0; display: flex; flex-direction: column; gap: 14px; align-items: center; justify-content: center;
+           text-align: center; padding: 24px; color: var(--suave); z-index: 5; }
+  .girando { width: 34px; height: 34px; border-radius: 50%; border: 3px solid #333; border-top-color: var(--ouro); animation: gira 1s linear infinite; }
+  @keyframes gira { to { transform: rotate(360deg) } }
+</style>
+</head>
+<body>
+<div id="topo">
+  <button class="chip" data-modo="tudo">Tudo</button>
+  <button class="chip" data-modo="breaking">⚡ Breaking News</button>
+  <button class="chip" data-modo="brasil">🇧🇷 Brasil</button>
+  <button class="chip" data-modo="poder">🏛️ Brasília</button>
+  <button class="chip" data-modo="mundo">🌍 Mundo</button>
+  <button class="chip" data-modo="elmundo">🌐 El Mundo</button>
+  <button class="chip" data-modo="curto">Curtos</button>
+  <button class="chip" data-modo="video">Vídeos</button>
+  <button class="chip" data-modo="radio">📻 Rádio</button>
+  <button class="chip live" id="botao-live">🔴 Live</button>
+  <span class="sep"></span>
+  <button class="chip" id="som">🔇</button>
+  <button class="chip" id="recarregar">↻</button>
+  <button class="chip" id="abrir-status">⚙</button>
+</div>
+<div id="selo-live">AO VIVO</div>
+<button id="novas"></button>
+<div id="aviso"><div class="girando"></div><div>Buscando as novidades...</div></div>
+<div id="feed"></div>
+<div id="progresso"></div>
+<div id="toast"></div>
+<div id="painel"><div class="caixa"></div></div>
+
+<script>
+// ================= AJUSTES =================
+// Quanto cada regiao aparece no feed (Brasil + estados + Brasilia = metade, mundo = outra metade)
+const PESOS_REGIAO = { brasil: .25, estados: .08, poder: .17, eua: .13, europa: .11, latam: .09, china: .07, russia: .07, outros: .03 };
+// No filtro Brasil: nacionais, estados e Brasilia
+const PESOS_BRASIL = { brasil: .40, estados: .35, poder: .25 };
+const BREAKING_CHECAR_MIN = 5;   // no Breaking News e no El Mundo, de quanto em quanto tempo procura novidades
+const CRONOLOGICOS = ['breaking', 'elmundo'];   // filtros sem sorteio: do mais novo pro mais velho
+const MEIA_VIDA_H = 18;          // um video com 18h vale metade de um recem-postado
+const JANELA_SEM_REPETIR = 8;    // a mesma fonte nao volta antes de 8 itens
+const LIVE_MAX_MIN = 15;         // no modo Live, video longo passa pro proximo depois disso
+const DIAS_LEMBRAR_VISTOS = 14;
+const ATUALIZAR_MIN = 15;        // de quanto em quanto tempo busca novidades (so com a pagina aberta)
+const LIMITE_DIAS = 10;          // ignora videos mais velhos que isso
+const MAX_ITENS = 5000;          // teto do acervo
+const SIMULTANEAS = 8;           // quantas fontes busca ao mesmo tempo
+const TEMPO_LIMITE_MS = 15000;   // desiste de uma busca que demora mais que isso
+// ===========================================
+
+const BANDEIRA = { brasil: '🇧🇷', estados: '📍', poder: '🏛️', eua: '🇺🇸', china: '🇨🇳', russia: '🇷🇺', europa: '🇪🇺', latam: '🌎', outros: '🌍' };
+const CHAVE = 'jornalfeed:v2';
+
+let itens = [], porId = {}, modo = 'tudo', ativo = null, ytPronto = false, pendente = null;
+let renderizados = 0, timerLive = null, timerUI = null, live = false;
+const feed = document.getElementById('feed');
+const aviso = document.getElementById('aviso');
+const topo = document.getElementById('topo');
+
+// ---------- memoria (fica guardada no navegador) ----------
+let estado = carregarEstado();
+function carregarEstado() {
+  try {
+    const e = JSON.parse(localStorage.getItem(CHAVE)) || {};
+    e.vistos = e.vistos || {}; e.filas = e.filas || {}; e.modo = e.modo || 'tudo';
+    const limite = Date.now() - DIAS_LEMBRAR_VISTOS * 86400e3;
+    for (const id in e.vistos) if (e.vistos[id] < limite) delete e.vistos[id];
+    return e;
+  } catch { return { vistos: {}, filas: {}, modo: 'tudo', som: false }; }
+}
+function salvar() { try { localStorage.setItem(CHAVE, JSON.stringify(estado)); } catch {} }
+
+// ---------- YouTube ----------
+function onYouTubeIframeAPIReady() {
+  ytPronto = true;
+  if (pendente) { const c = pendente; pendente = null; ativo = null; ativar(c); }
+}
+const s = document.createElement('script');
+s.src = 'https://www.youtube.com/iframe_api';
+document.head.appendChild(s);
+
+// ---------- utilidades ----------
+function esc(t) { return String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function haQuanto(ts) {
+  const min = Math.round((Date.now() - ts) / 60000);
+  if (min < 60) return 'há ' + Math.max(min, 1) + ' min';
+  const h = Math.round(min / 60);
+  if (h < 24) return 'há ' + h + ' h';
+  return 'há ' + Math.round(h / 24) + ' d';
+}
+function sortear(pares) {
+  let total = 0; for (const [, p] of pares) total += p;
+  let r = Math.random() * total;
+  for (const [x, p] of pares) { r -= p; if (r <= 0) return x; }
+  return pares[pares.length - 1][0];
+}
+function pesoRecencia(v) {
+  const horas = (Date.now() - v.ts) / 36e5;
+  return Math.max(Math.pow(.5, horas / MEIA_VIDA_H), .03);
+}
+function passa(v, m) {
+  switch (m) {
+    case 'poder': return v.regiao === 'poder';
+    case 'brasil': return v.regiao === 'brasil' || v.regiao === 'estados' || v.regiao === 'poder';
+    case 'mundo': return v.regiao !== 'brasil' && v.regiao !== 'estados' && v.regiao !== 'poder';
+    case 'elmundo': return v.elmundo === true;
+    case 'curto': return v.tipo === 'curto';
+    case 'video': return v.tipo === 'video';
+    case 'radio': return v.fonte === 'radio' || v.tipo === 'audio';
+    default: return true;
+  }
+}
+
+// ---------- o algoritmo de sorteio ----------
+// 1) sorteia a regiao pelos pesos  2) sorteia a fonte (recente pesa mais, quem apareceu muito pesa menos,
+// quem apareceu nos ultimos 8 quase some)  3) sorteia um dos 4 itens mais novos dessa fonte
+function gerar(n, m, fila) {
+  const naFila = new Set(fila.ordem);
+  // Breaking News e El Mundo: sem sorteio, so do mais novo pro mais velho (o que ja viu vai pro fim)
+  if (CRONOLOGICOS.includes(m)) {
+    const livres = itens.filter(v => passa(v, m) && !naFila.has(v.id)).sort((a, b) => b.ts - a.ts);
+    return livres.filter(v => !estado.vistos[v.id]).concat(livres.filter(v => estado.vistos[v.id])).slice(0, n).map(v => v.id);
+  }
+  const pesos = m === 'brasil' ? PESOS_BRASIL : PESOS_REGIAO;
+  let pool = itens.filter(v => passa(v, m) && !naFila.has(v.id) && !estado.vistos[v.id]);
+  if (pool.length < n) {
+    const reprise = itens.filter(v => passa(v, m) && !naFila.has(v.id) && estado.vistos[v.id])
+      .sort((a, b) => estado.vistos[a.id] - estado.vistos[b.id]).slice(0, n * 3);
+    pool = pool.concat(reprise);
+  }
+  const grupos = {};
+  for (const v of pool) {
+    const r = grupos[v.regiao] = grupos[v.regiao] || {};
+    (r[v.veiculo] = r[v.veiculo] || []).push(v);
+  }
+  for (const r in grupos) for (const f in grupos[r]) grupos[r][f].sort((a, b) => b.ts - a.ts);
+
+  const ultimos = fila.ordem.slice(-JANELA_SEM_REPETIR).map(id => porId[id]).filter(Boolean);
+  const histFonte = ultimos.map(v => v.veiculo), histRegiao = ultimos.map(v => v.regiao);
+  const contagem = {}, saida = [];
+
+  while (saida.length < n) {
+    const regioes = Object.keys(grupos);
+    if (!regioes.length) break;
+    const ult2 = histRegiao.slice(-2);
+    const r = sortear(regioes.map(x => [x, (pesos[x] || .03) * (ult2.length === 2 && ult2.every(y => y === x) ? .15 : 1)]));
+    const fontes = grupos[r];
+    const f = sortear(Object.keys(fontes).map(nome => {
+      let p = pesoRecencia(fontes[nome][0]) / (1 + (contagem[nome] || 0));
+      const pos = histFonte.lastIndexOf(nome);
+      if (pos >= 0 && histFonte.length - pos <= JANELA_SEM_REPETIR) p *= .02;
+      return [nome, p];
+    }));
+    const lista = fontes[f];
+    const v = sortear(lista.slice(0, 4).map(x => [x, pesoRecencia(x)]));
+    lista.splice(lista.indexOf(v), 1);
+    if (!lista.length) delete fontes[f];
+    if (!Object.keys(fontes).length) delete grupos[r];
+    saida.push(v.id); histFonte.push(f); histRegiao.push(r);
+    contagem[f] = (contagem[f] || 0) + 1;
+  }
+  return saida;
+}
+
+function filaAtual() {
+  const f = estado.filas[modo] = estado.filas[modo] || { ordem: [], indice: 0 };
+  f.ordem = f.ordem.filter(id => porId[id]);
+  if (f.indice >= f.ordem.length) f.indice = Math.max(0, f.ordem.length - 1);
+  if (f.ordem.length - f.indice < 10) f.ordem.push(...gerar(40, modo, f));
+  return f;
+}
+
+// ---------- cards ----------
+const observador = new IntersectionObserver(entradas => {
+  for (const e of entradas) if (e.isIntersecting) ativar(e.target);
+}, { root: feed, threshold: 0.6 });
+
+function montarCard(v, pos) {
+  const c = document.createElement('section');
+  c.className = 'card ' + v.tipo;
+  c.dataset.pos = pos;
+  c.dataset.id = v.id;
+  const tipoIcone = { tv: '📺', radio: '📻', poder: '', jornal: '📰' }[v.fonte] || '';
+  const info = `<div class="info"><span class="selo"><span class="bandeira">${BANDEIRA[v.regiao] || '🌍'}</span>${esc(v.veiculo)} ${tipoIcone}</span>
+                <span class="quando">${haQuanto(v.ts)}</span><div class="titulo">${esc(v.titulo)}</div></div>`;
+  if (v.tipo === 'audio') {
+    c.innerHTML = `<div class="palco"><div class="ondas"><i></i><i></i><i></i><i></i><i></i></div>
+                   <audio controls preload="none" src="${esc(v.audio)}"></audio><div class="toque"></div></div>${info}`;
+  } else {
+    const thumbHQ = `https://i.ytimg.com/vi/${v.id}/hqdefault.jpg`;
+    const thumb = v.tipo === 'curto' ? `https://i.ytimg.com/vi/${v.id}/oar2.jpg` : thumbHQ;
+    c.innerHTML = `<div class="fundo" style="background-image:url('${thumbHQ}')"></div>
+                   <div class="palco"><img loading="lazy" src="${thumb}" onerror="this.onerror=null;this.src='${thumbHQ}'" alt="">
+                   <div class="toque"></div></div>${info}`;
+  }
+  c.querySelector('.toque').onclick = mostrarUI;
+  return c;
+}
+
+function garantirCards() {
+  const f = filaAtual();
+  while (renderizados < f.ordem.length && renderizados <= f.indice + 6) {
+    const v = porId[f.ordem[renderizados]];
+    const c = montarCard(v, renderizados);
+    feed.appendChild(c);
+    observador.observe(c);
+    renderizados++;
+  }
+}
+
+// ---------- tocar / parar ----------
+function ativar(card) {
+  if (ativo === card) return;
+  desativar(ativo);
+  ativo = card;
+  const f = filaAtual();
+  f.indice = +card.dataset.pos;
+  estado.vistos[card.dataset.id] = Date.now();
+  salvar();
+  garantirCards();
+
+  const v = porId[card.dataset.id];
+  if (v.tipo === 'audio') {
+    const a = card.querySelector('audio');
+    if (estado.som) a.play().catch(() => {});
+    a.onended = () => proximo(card);
+    if (live) timerLive = setTimeout(() => proximo(card), LIVE_MAX_MIN * 60e3);
+    return;
+  }
+  if (!ytPronto) { pendente = card; return; }
+  const alvo = document.createElement('div');
+  card.querySelector('.palco').appendChild(alvo);
+  card._player = new YT.Player(alvo, {
+    videoId: v.id,
+    playerVars: { autoplay: 1, mute: estado.som ? 0 : 1, playsinline: 1, rel: 0, origin: location.origin },
+    events: {
+      onReady: e => {
+        estado.som ? e.target.unMute() : e.target.mute();
+        e.target.playVideo();
+        // se o navegador barrar o som, toca mudo em vez de ficar parado
+        setTimeout(() => {
+          try { const st = e.target.getPlayerState(); if (ativo === card && st !== 1 && st !== 3) { e.target.mute(); e.target.playVideo(); } } catch {}
+        }, 2500);
+      },
+      onStateChange: e => {
+        if (e.data === YT.PlayerState.ENDED) proximo(card);
+        if (e.data === YT.PlayerState.PLAYING && live && !timerLive) {
+          const dur = e.target.getDuration();
+          if (dur > LIVE_MAX_MIN * 60) timerLive = setTimeout(() => proximo(card), LIVE_MAX_MIN * 60e3);
+        }
+      },
+      onError: () => {
+        if (live) { setTimeout(() => proximo(card), 1200); return; }
+        const b = document.createElement('div');
+        b.className = 'bloqueado';
+        b.innerHTML = `<p>O dono deste vídeo não deixa tocar fora do YouTube.<br><br><a href="https://www.youtube.com/watch?v=${v.id}" target="_blank">Abrir no YouTube</a></p>`;
+        card.querySelector('.palco').appendChild(b);
+      }
+    }
+  });
+}
+
+function desativar(card) {
+  clearTimeout(timerLive); timerLive = null;
+  if (!card) return;
+  if (card._player) { try { card._player.destroy(); } catch {} card._player = null; }
+  card.querySelectorAll('.palco iframe, .palco > div:not(.toque):not(.ondas)').forEach(n => n.remove());
+  const a = card.querySelector('audio');
+  if (a) a.pause();
+}
+
+function proximo(card) {
+  if (ativo !== card) return;
+  const seguinte = card.nextElementSibling;
+  if (seguinte) seguinte.scrollIntoView({ behavior: 'smooth' });
+}
+
+// ---------- desenhar o feed ----------
+function desenhar() {
+  observador.disconnect();
+  desativar(ativo); ativo = null; pendente = null;
+  feed.innerHTML = '';
+  document.body.classList.toggle('live', live);
+  document.querySelectorAll('[data-modo]').forEach(b => b.classList.toggle('ativo', b.dataset.modo === modo));
+  document.getElementById('botao-live').classList.toggle('ativo', live);
+  const f = filaAtual();
+  salvar();
+  if (!f.ordem.length) {
+    aviso.style.display = 'flex';
+    aviso.innerHTML = '<div>Nada aqui ainda. Toque em ⚙ pra ver o status das fontes.</div>';
+    return;
+  }
+  aviso.style.display = 'none';
+  renderizados = f.indice;
+  const alvo = f.indice;
+  garantirCards();
+  const card = feed.querySelector(`[data-pos="${alvo}"]`);
+  if (card) requestAnimationFrame(() => card.scrollIntoView({ block: 'start' }));
+  mostrarUI();
+}
+
+function trocarModo(m) {
+  modo = estado.modo = m;
+  if (CRONOLOGICOS.includes(m)) reiniciarCrono(m);
+  desenhar();
+}
+
+// ---------- Breaking News e El Mundo ----------
+// Toda vez que entra num deles (ou abre o app), a fila recomeca do mais novo
+function reiniciarCrono(m) {
+  let marco = 0;
+  for (const v of itens) if (passa(v, m) && v.ts > marco) marco = v.ts;
+  estado.filas[m] = { ordem: [], indice: 0, marco };
+  esconderNovas();
+}
+const botaoNovas = document.getElementById('novas');
+function esconderNovas() { botaoNovas.classList.remove('mostrar'); }
+function verificarNovas() {
+  const f = estado.filas[modo];
+  if (!CRONOLOGICOS.includes(modo) || !f) return esconderNovas();
+  const n = itens.filter(v => passa(v, modo) && v.ts > (f.marco || 0) && !estado.vistos[v.id]).length;
+  if (!n) return esconderNovas();
+  botaoNovas.textContent = '⚡ ' + n + (n === 1 ? ' novidade' : ' novidades') + ' · toque pra ver';
+  botaoNovas.classList.add('mostrar');
+}
+botaoNovas.onclick = () => { reiniciarCrono(modo); desenhar(); };
+
+
+
+// O Live nao muda o conteudo: e o mesmo feed, so que passando sozinho
+function alternarLive() {
+  live = !live;
+  if (live) { estado.som = true; salvar(); atualizarBotaoSom(); }
+  document.body.classList.toggle('live', live);
+  document.getElementById('botao-live').classList.toggle('ativo', live);
+  mostrarUI();
+  clearTimeout(timerLive); timerLive = null;
+  if (!ativo || !live) return;
+  const card = ativo;
+  if (card._player) {
+    try {
+      card._player.unMute(); card._player.playVideo();
+      const restante = card._player.getDuration() - card._player.getCurrentTime();
+      if (card._player.getDuration() > LIVE_MAX_MIN * 60) timerLive = setTimeout(() => proximo(card), Math.min(restante, LIVE_MAX_MIN * 60) * 1000);
+    } catch {}
+  }
+  const a = card.querySelector('audio');
+  if (a) { a.play().catch(() => {}); timerLive = setTimeout(() => proximo(card), LIVE_MAX_MIN * 60e3); }
+}
+
+function mostrarUI() {
+  topo.classList.remove('oculto');
+  clearTimeout(timerUI);
+  if (live) timerUI = setTimeout(() => topo.classList.add('oculto'), 4000);
+}
+
+// ================= COLETA (o navegador faz o papel do servidor) =================
+// Precisa da extensao de CORS no Firefox: sem ela o navegador nao deixa ler o YouTube.
+const CHAVE_ACERVO = 'jornalfeed:acervo';
+const CHAVE_IDS = 'jornalfeed:ids';
+let acervo = { itens: [], status: [], atualizado: 0 };
+let fontes = [];
+let coletando = null;
+
+function lerLocal(k, padrao) { try { return JSON.parse(localStorage.getItem(k)) || padrao; } catch { return padrao; } }
+function gravarLocal(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+const esperar = ms => new Promise(r => setTimeout(r, ms));
+
+function mostrarProgresso(t) { const p = document.getElementById('progresso'); p.textContent = t; p.classList.toggle('mostrar', !!t); }
+let timerToast;
+function toast(t) {
+  const el = document.getElementById('toast');
+  el.textContent = t; el.classList.add('mostrar');
+  clearTimeout(timerToast); timerToast = setTimeout(() => el.classList.remove('mostrar'), 9000);
+}
+
+async function baixar(url) {
+  const r = await fetch(url, { signal: AbortSignal.timeout(TEMPO_LIMITE_MS), credentials: 'omit', cache: 'no-store' });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.text();
+}
+
+function desescapar(s) {
+  return (s || '').replace(/<!\[CDATA\[|\]\]>/g, '')
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&apos;/g, "'")
+    .replace(/&amp;/g, '&').trim();
+}
+function paraData(s) { const t = Date.parse(s); return isNaN(t) ? 0 : t; }
+
+function lerFeedYouTube(xml) {
+  const autor = desescapar((xml.match(/<author>\s*<name>([^<]*)<\/name>/) || [])[1]);
+  const lista = [];
+  for (const bloco of xml.split('<entry>').slice(1)) {
+    const id = (bloco.match(/<yt:videoId>([^<]+)</) || [])[1];
+    const titulo = (bloco.match(/<title>([^<]*)</) || [])[1];
+    const data = (bloco.match(/<published>([^<]+)</) || [])[1];
+    if (id) lista.push({ id, titulo: desescapar(titulo), ts: paraData(data) });
+  }
+  return { autor, itens: lista };
+}
+
+// Fonte sem ID gravado: tenta descobrir pelo @ ou pela busca do YouTube (uma de cada vez)
+let filaDescoberta = Promise.resolve();
+function descobrir(f) {
+  const ids = lerLocal(CHAVE_IDS, {});
+  const chave = f.handle || 'busca:' + (f.busca || f.nome);
+  if (ids[chave]) return Promise.resolve(ids[chave]);
+  const p = filaDescoberta.then(async () => {
+    let id = null;
+    const limpar = h => h.replace(/\\x22/g, '"').replace(/\\x7b/g, '{').replace(/\\x7d/g, '}').replace(/\\x3d/g, '=');
+    if (f.handle) {
+      try {
+        const html = limpar(await baixar('https://www.youtube.com/' + f.handle));
+        const m = html.match(/"externalId":"(UC[\w-]{22})"/) || html.match(/<meta itemprop="identifier" content="(UC[\w-]{22})"/) || html.match(/"channelId":"(UC[\w-]{22})"/);
+        if (m) id = m[1];
+      } catch {}
+    }
+    if (!id) {
+      const html = limpar(await baixar('https://www.youtube.com/results?search_query=' + encodeURIComponent(f.busca || f.nome) + '&sp=EgIQAg%253D%253D'));
+      const m = html.match(/"channelRenderer":\{"channelId":"(UC[\w-]{22})"/) || html.match(/"browseId":"(UC[\w-]{22})"/);
+      if (m) id = m[1];
+    }
+    if (!id) throw new Error('canal não encontrado');
+    const atual = lerLocal(CHAVE_IDS, {}); atual[chave] = id; gravarLocal(CHAVE_IDS, atual);
+    return id;
+  });
+  filaDescoberta = p.catch(() => {}).then(() => esperar(1500));
+  return p;
+}
+
+const feedYT = q => 'https://www.youtube.com/feeds/videos.xml?' + q;
+
+// Cada canal tem playlists automaticas: UUSH = so Shorts, UULF = so videos normais
+async function coletarCanal(f) {
+  const uc = f.id || await descobrir(f);
+  const base = uc.slice(2);
+  const [curtos, videos] = await Promise.allSettled([baixar(feedYT('playlist_id=UUSH' + base)), baixar(feedYT('playlist_id=UULF' + base))]);
+  let lista = [], autor = '';
+  if (curtos.status === 'fulfilled') { const r = lerFeedYouTube(curtos.value); autor = r.autor || autor; lista.push(...r.itens.map(v => ({ ...v, tipo: 'curto' }))); }
+  if (videos.status === 'fulfilled') { const r = lerFeedYouTube(videos.value); autor = r.autor || autor; lista.push(...r.itens.map(v => ({ ...v, tipo: 'video' }))); }
+  if (curtos.status === 'rejected' && videos.status === 'rejected') {
+    const r = lerFeedYouTube(await baixar(feedYT('channel_id=' + uc)));
+    autor = r.autor; lista = r.itens.map(v => ({ ...v, tipo: 'video' }));
+  }
+  return { canal: autor, uc, itens: lista };
+}
+
+async function coletarPodcast(f) {
+  const xml = await baixar(f.feed);
+  const lista = [];
+  for (const b of xml.split(/<item[\s>]/).slice(1, 16)) {
+    const titulo = desescapar((b.match(/<title>([\s\S]*?)<\/title>/) || [])[1]);
+    const audio = (b.match(/<enclosure[^>]*url="([^"]+)"/) || [])[1];
+    const data = (b.match(/<pubDate>([^<]+)</) || [])[1];
+    if (audio) lista.push({ id: desescapar(audio), audio: desescapar(audio), titulo, ts: paraData(data), tipo: 'audio' });
+  }
+  return { canal: f.nome, itens: lista };
+}
+
+async function coletarTudo() {
+  if (coletando) return coletando;
+  coletando = (async () => {
+    if (!fontes.length) {
+      const r = await fetch('fontes.json', { cache: 'no-store' });
+      fontes = await r.json();
+    }
+    const corte = Date.now() - LIMITE_DIAS * 86400e3;
+    const todos = [], status = [];
+    let feitas = 0, bloqueios = 0, i = 0;
+    mostrarProgresso('↻ atualizando 0/' + fontes.length);
+    const trabalhador = async () => {
+      while (i < fontes.length) {
+        const f = fontes[i++];
+        try {
+          const r = f.feed ? await coletarPodcast(f) : await coletarCanal(f);
+          // campos extras da fonte (ex.: "elmundo") passam direto pro item
+          const { nome, handle, busca, id, feed, regiao, tipo, ...extras } = f;
+          const lista = r.itens.filter(v => v.ts > corte)
+            .map(v => ({ ...v, ...extras, veiculo: f.nome, regiao: f.regiao || 'outros', fonte: f.tipo || 'jornal' }));
+          todos.push(...lista);
+          status.push({ nome: f.nome, regiao: f.regiao || 'outros', ok: true, qtd: lista.length, canal: r.canal, uc: r.uc });
+        } catch (e) {
+          if (e.name === 'TypeError') bloqueios++;
+          status.push({ nome: f.nome, regiao: f.regiao || 'outros', ok: false,
+            erro: e.name === 'TimeoutError' ? 'demorou demais' : e.name === 'TypeError' ? 'bloqueado pelo navegador' : e.message });
+        }
+        feitas++;
+        mostrarProgresso('↻ atualizando ' + feitas + '/' + fontes.length);
+      }
+    };
+    await Promise.all(Array.from({ length: SIMULTANEAS }, trabalhador));
+    mostrarProgresso('');
+    if (bloqueios > fontes.length * 0.8) {
+      toast('O navegador bloqueou o YouTube. Confira se a extensão de CORS está ligada e liberada pra este site.');
+      return false;
+    }
+    const vistos = new Set();
+    acervo = {
+      itens: todos.filter(v => !vistos.has(v.id) && vistos.add(v.id)).sort((a, b) => b.ts - a.ts).slice(0, MAX_ITENS),
+      status: status.sort((a, b) => a.regiao.localeCompare(b.regiao) || a.nome.localeCompare(b.nome)),
+      atualizado: Date.now()
+    };
+    gravarLocal(CHAVE_ACERVO, acervo);
+    return true;
+  })().catch(e => { mostrarProgresso(''); toast('Não consegui atualizar: ' + e.message); return false; })
+     .finally(() => { coletando = null; });
+  return coletando;
+}
+
+function aplicarAcervo() {
+  itens = acervo.itens;
+  for (const v of itens) porId[v.id] = v;   // nunca apaga: os cards que ja estao na tela continuam validos
+}
+
+// Abrir: mostra na hora o que ja estava guardado e busca novidades por tras
+async function iniciar() {
+  acervo = lerLocal(CHAVE_ACERVO, acervo);
+  if (acervo.itens.length) {
+    aplicarAcervo();
+    for (const m of CRONOLOGICOS) reiniciarCrono(m);
+    desenhar();
+  } else {
+    aviso.style.display = 'flex';
+    aviso.innerHTML = '<div class="girando"></div><div>Primeira busca: lendo os canais direto do YouTube...<br>pode levar um ou dois minutos</div>';
+  }
+  if (Date.now() - acervo.atualizado > 10 * 60e3) await atualizar(false);
+}
+
+// forcar = botao ↻: depois de atualizar, refaz as filas com o que chegou
+async function atualizar(forcar) {
+  const tinhaItens = itens.length > 0;
+  const ok = await coletarTudo();
+  if (!ok) {
+    if (!tinhaItens) aviso.innerHTML = '<div>Não consegui ler o YouTube.<br>A extensão de CORS está ligada no Firefox?</div>';
+    return;
+  }
+  aplicarAcervo();
+  if (!tinhaItens || forcar) {
+    for (const m of CRONOLOGICOS) reiniciarCrono(m);
+    for (const k in estado.filas) {
+      const f = estado.filas[k];
+      if (!CRONOLOGICOS.includes(k)) f.ordem = f.ordem.slice(0, f.indice + 1);
+    }
+    desenhar();
+  } else {
+    verificarNovas();
+  }
+}
+
+// Com a pagina aberta: busca novidades de tempos em tempos (e quando voce volta pra ela)
+setInterval(() => { if (document.visibilityState === 'visible') atualizar(false); }, ATUALIZAR_MIN * 60e3);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && Date.now() - acervo.atualizado > ATUALIZAR_MIN * 60e3) atualizar(false);
+});
+
+// ⚙ status das fontes, dentro da propria pagina
+const NOMES_REGIAO = {
+  brasil: '🇧🇷 Brasil', estados: '📍 Estados', poder: '🏛️ Brasília', eua: '🇺🇸 Estados Unidos', china: '🇨🇳 China',
+  russia: '🇷🇺 Rússia', europa: '🇪🇺 Europa', latam: '🌎 América Latina', outros: '🌍 Outros'
+};
+function abrirStatus() {
+  const grupos = {};
+  for (const st of acervo.status) (grupos[st.regiao] = grupos[st.regiao] || []).push(st);
+  const ok = acervo.status.filter(st => st.ok).length;
+  const blocos = Object.keys(grupos).map(r => '<h3>' + (NOMES_REGIAO[r] || r) + '</h3><ul>' + grupos[r].map(st => st.ok
+    ? '<li>✅ ' + esc(st.nome) + ' <span>' + st.qtd + ' itens · <a href="https://www.youtube.com/channel/' + esc(st.uc || '') + '" target="_blank">' + esc(st.canal || 'canal') + '</a></span></li>'
+    : '<li class="erro">❌ ' + esc(st.nome) + ' <span>' + esc(st.erro) + '</span></li>').join('') + '</ul>').join('');
+  const painel = document.getElementById('painel');
+  painel.querySelector('.caixa').innerHTML = '<p><a href="#" id="fechar-status">← voltar pro feed</a></p>'
+    + '<h2>Fontes: ' + ok + ' de ' + acervo.status.length + ' funcionando</h2>'
+    + '<p class="linha">Última atualização: ' + (acervo.atualizado ? new Date(acervo.atualizado).toLocaleString('pt-BR') : 'nunca')
+    + ' · ' + acervo.itens.length + ' itens no acervo</p>' + (blocos || '<p class="linha">Ainda não buscou nada.</p>');
+  painel.classList.add('mostrar');
+  document.getElementById('fechar-status').onclick = e => { e.preventDefault(); painel.classList.remove('mostrar'); };
+}
+document.getElementById('abrir-status').onclick = abrirStatus;
+
+function atualizarBotaoSom() { document.getElementById('som').textContent = estado.som ? '🔊' : '🔇'; }
+
+document.querySelectorAll('[data-modo]').forEach(b => b.onclick = () => trocarModo(b.dataset.modo));
+document.getElementById('botao-live').onclick = alternarLive;
+
+document.getElementById('som').onclick = () => {
+  estado.som = !estado.som; salvar(); atualizarBotaoSom();
+  if (!ativo) return;
+  if (ativo._player && ativo._player.unMute) estado.som ? ativo._player.unMute() : ativo._player.mute();
+  const a = ativo.querySelector('audio');
+  if (a) estado.som ? a.play().catch(() => {}) : a.pause();
+};
+
+document.getElementById('recarregar').onclick = () => atualizar(true);
+
+// girou o tablet: reencaixa no item atual
+let timerGiro;
+addEventListener('resize', () => {
+  clearTimeout(timerGiro);
+  timerGiro = setTimeout(() => { if (ativo) ativo.scrollIntoView({ block: 'start' }); }, 150);
+});
+
+modo = estado.modo;
+atualizarBotaoSom();
+iniciar();
+</script>
+</body>
+</html>
