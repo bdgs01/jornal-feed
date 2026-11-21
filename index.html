@@ -427,7 +427,11 @@ function desenhar() {
   salvar();
   if (!f.ordem.length) {
     aviso.style.display = 'flex';
-    aviso.innerHTML = '<div>Nada aqui ainda. Toque em ⚙ pra ver o status das fontes.</div>';
+    aviso.innerHTML = '<div>Nada aqui ainda.' + (coletando ? '<br>Estou buscando as novidades, já já aparece.' : '<br>Toque em ↻ pra buscar de novo, ou em ⚙ pra ver as fontes.') + '</div>'
+      + '<button class="chip" id="voltar-tudo">← voltar pro Tudo</button>';
+    document.getElementById('voltar-tudo').onclick = () => trocarModo('tudo');
+    document.body.classList.add('ui');   // sem video na tela, os botoes ficam sempre visiveis
+    clearTimeout(timerUI);
     return;
   }
   aviso.style.display = 'none';
@@ -497,7 +501,11 @@ function mostrarUI() {
   clearTimeout(timerUI);
   timerUI = setTimeout(esconderUI, UI_SEGUNDOS * 1000);
 }
-function esconderUI() { clearTimeout(timerUI); document.body.classList.remove('ui'); }
+function esconderUI() {
+  clearTimeout(timerUI);
+  if (!feed.children.length) return;   // tela vazia: nunca esconde os botoes
+  document.body.classList.remove('ui');
+}
 function alternarUI() { document.body.classList.contains('ui') ? esconderUI() : mostrarUI(); }
 // mexeu nos botoes do topo: conta o tempo de novo pra eles nao sumirem na sua mao
 topo.addEventListener('pointerdown', () => { if (document.body.classList.contains('ui')) mostrarUI(); });
@@ -638,16 +646,21 @@ async function coletarPodcast(f) {
   return { canal: f.nome, itens: lista };
 }
 
+async function carregarFontes() {
+  if (fontes.length) return fontes;
+  const r = await fetch('fontes.json', { cache: 'no-store' });
+  const lista = await r.json();
+  for (const extra of FONTES_EXTRAS) {
+    try { const rx = await fetch(extra, { cache: 'no-store' }); if (rx.ok) lista.push(...await rx.json()); } catch {}
+  }
+  fontes = lista;
+  return fontes;
+}
+
 async function coletarTudo() {
   if (coletando) return coletando;
   coletando = (async () => {
-    if (!fontes.length) {
-      const r = await fetch('fontes.json', { cache: 'no-store' });
-      fontes = await r.json();
-      for (const extra of FONTES_EXTRAS) {
-        try { const rx = await fetch(extra, { cache: 'no-store' }); if (rx.ok) fontes.push(...await rx.json()); } catch {}
-      }
-    }
+    await carregarFontes();
     const corte = Date.now() - LIMITE_DIAS * 86400e3;
     const todos = [], status = [];
     let feitas = 0, bloqueios = 0, i = 0;
@@ -707,7 +720,13 @@ async function iniciar() {
     aviso.style.display = 'flex';
     aviso.innerHTML = '<div class="girando"></div><div>Primeira busca: lendo os canais direto do YouTube...<br>pode levar um ou dois minutos</div>';
   }
-  if (Date.now() - acervo.atualizado > 10 * 60e3) await atualizar(false);
+  // fonte nova no GitHub (que o acervo guardado ainda nao conhece)? busca na hora, sem esperar os 10 minutos
+  let fonteNova = false;
+  try {
+    const conhecidas = new Set(acervo.status.map(st => st.nome));
+    fonteNova = (await carregarFontes()).some(f => !conhecidas.has(f.nome));
+  } catch {}
+  if (fonteNova || Date.now() - acervo.atualizado > 10 * 60e3) await atualizar(fonteNova);
 }
 
 // forcar = botao ↻: depois de atualizar, refaz as filas com o que chegou
