@@ -125,6 +125,7 @@
   <button class="chip" data-modo="tudo">Tudo</button>
   <button class="chip" data-modo="breaking">⚡ Breaking News</button>
   <button class="chip" data-modo="brasil">🇧🇷 Brasil</button>
+  <button class="chip" data-modo="brzao">BRzão</button>
   <button class="chip" data-modo="poder">🏛️ Brasília</button>
   <button class="chip" data-modo="mundo">🌍 Mundo</button>
   <button class="chip" data-modo="elmundo">🌐 El Mundo</button>
@@ -156,7 +157,7 @@ const PESOS_REGIAO = { brasil: .25, estados: .08, poder: .17, eua: .13, europa: 
 // No filtro Brasil: nacionais, estados e Brasilia
 const PESOS_BRASIL = { brasil: .40, estados: .35, poder: .25 };
 const BREAKING_CHECAR_MIN = 5;   // no Breaking News e no El Mundo, de quanto em quanto tempo procura novidades
-const CRONOLOGICOS = ['breaking', 'elmundo'];   // filtros sem sorteio: do mais novo pro mais velho
+const CRONOLOGICOS = ['breaking', 'elmundo', 'brzao'];   // filtros sem sorteio: do mais novo pro mais velho
 const MEIA_VIDA_H = 18;          // um video com 18h vale metade de um recem-postado
 const JANELA_SEM_REPETIR = 8;    // a mesma fonte nao volta antes de 8 itens
 const LIVE_MAX_MIN = 15;         // no modo Live, video longo passa pro proximo depois disso
@@ -222,6 +223,8 @@ function pesoRecencia(v) {
   return Math.max(Math.pow(.5, horas / MEIA_VIDA_H), .03);
 }
 function passa(v, m) {
+  // BRzão: todo canal brasileiro (noticia, estados, Brasilia e a parte brasileira da estante), so video curto
+  if (m === 'brzao') return v.tipo === 'curto' && (v.regiao === 'brasil' || v.regiao === 'estados' || v.regiao === 'poder' || (v.estante === true && v.grupo === 'br'));
   // 📚 so mostra a estante, e so video vertical; o resto do app nunca mostra a estante
   if (m === 'estante') return v.estante === true && v.tipo === 'curto';
   if (v.estante) return false;
