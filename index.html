@@ -46,6 +46,27 @@
   .titulo { font-size: clamp(16px, 2.3vw, 21px); line-height: 1.38; margin-top: 10px; font-weight: 600;
             text-shadow: 0 1px 12px rgba(0,0,0,.7); display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
 
+  .nota { margin-top: 10px; font-size: 14px; line-height: 1.45; color: #f3dd9b; text-shadow: 0 1px 10px rgba(0,0,0,.8); }
+
+  /* 🎁 a carta do Dsac */
+  .card.carta { background: radial-gradient(ellipse at 50% 30%, #2a2113 0%, #120e08 55%, #000 100%); }
+  .carta-caixa { max-width: 560px; width: 100%; padding: 28px 26px; font-family: Georgia, "Times New Roman", serif;
+                 font-size: clamp(15px, 2.1vh, 18px); line-height: 1.6; color: #efe6d2; }
+  .carta-caixa p { margin-top: .85em; }
+  .carta-topo { font-family: system-ui, sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase;
+                color: var(--ouro); margin-bottom: 1.2em; }
+  .carta-hora { color: #d9c48a; font-style: italic; }
+  .carta-assina { margin-top: 1.3em !important; }
+  .carta-desliza { margin-top: 2em; font-family: system-ui, sans-serif; font-size: 13px; color: var(--suave); text-align: center;
+                   animation: respira 2.4s ease-in-out infinite; }
+  @keyframes respira { 50% { opacity: .35 } }
+  .chip.dsac { border-color: rgba(232,185,49,.55); }
+  @media (max-height: 560px) {
+    .carta-caixa { max-width: 900px; font-size: 13.5px; line-height: 1.45; padding: 16px 26px; columns: 2; column-gap: 40px; }
+    .carta-topo, .carta-desliza { column-span: all; }
+    .carta-desliza { margin-top: .8em; }
+  }
+
   @media (orientation: landscape) {
     .card.video .palco { width: min(100vw, calc(100dvh * 16 / 9)); }
     .card.video .info { position: absolute; left: 0; right: 0; bottom: 0; max-width: none; padding: 60px 28px 26px;
@@ -133,6 +154,10 @@
   <button class="chip" data-modo="video">Vídeos</button>
   <button class="chip" data-modo="radio">📻 Rádio</button>
   <button class="chip" data-modo="estante">📚</button>
+  <button class="chip" data-modo="classica">🎻 Clássica</button>
+  <button class="chip" data-modo="longos">🎼 Longos</button>
+  <button class="chip" data-modo="pensar">🦉 Pensar</button>
+  <button class="chip dsac" data-modo="dsac">🎁 Dsac</button>
   <button class="chip live" id="botao-live">🔴 Live</button>
   <span class="sep"></span>
   <button class="chip" id="pausa">⏸</button>
@@ -151,32 +176,205 @@
 <div id="painel"><div class="caixa"></div></div>
 
 <script>
+// 🎻🎼🦉📚🎁 os 135 canais das abas de cultura moram aqui dentro (com os IDs ja descobertos)
+const FONTES_CULTURA = [
+  {"nome":"Deutsche Grammophon","busca":"Deutsche Grammophon","regiao":"classica","tipo":"cultura","abas":["classica"],"lingua":"en","id":"UC34DbNyD_0t8tnOc5V38Big"},
+  {"nome":"Decca Classics","busca":"Decca Classics","regiao":"classica","tipo":"cultura","abas":["classica"],"lingua":"en","id":"UCwWWbo90m_RsbjmrBCccvJQ"},
+  {"nome":"Sony Classical","busca":"Sony Classical","regiao":"classica","tipo":"cultura","abas":["classica"],"lingua":"en","id":"UCxt3ESHv8W9Lavl3zfBkkzQ"},
+  {"nome":"medici.tv","busca":"medici.tv classical music","regiao":"classica","tipo":"cultura","abas":["classica","longos"],"lingua":"en","id":"UCx8Hvu3edWIwQhQZVvMT9aQ"},
+  {"nome":"Berliner Philharmoniker","busca":"Berliner Philharmoniker","regiao":"classica","tipo":"cultura","abas":["classica"],"lingua":"en","id":"UCtRkmSO4PrhJ4TzNOmFIwjw"},
+  {"nome":"Wiener Philharmoniker","busca":"Wiener Philharmoniker","regiao":"classica","tipo":"cultura","abas":["classica"],"lingua":"en","id":"UCkoNG6B8p4Qq44moxH-pYHg"},
+  {"nome":"London Symphony Orchestra","busca":"London Symphony Orchestra","regiao":"classica","tipo":"cultura","abas":["classica","longos"],"lingua":"en","id":"UCY1yTIi-DaxPbNtLCnwAM1g"},
+  {"nome":"Concertgebouworkest","busca":"Royal Concertgebouw Orchestra","regiao":"classica","tipo":"cultura","abas":["classica","longos"],"lingua":"en","id":"UCG_xCloLaV2TvXtKOCH-lSA"},
+  {"nome":"New York Philharmonic","busca":"New York Philharmonic","regiao":"classica","tipo":"cultura","abas":["classica"],"lingua":"en","id":"UCXurQhbWuJW7FatrU_y88BQ"},
+  {"nome":"Carnegie Hall","busca":"Carnegie Hall","regiao":"classica","tipo":"cultura","abas":["classica"],"lingua":"en","id":"UCoU7xxMfMAZmB7THNylLZ4g"},
+  {"nome":"Royal Albert Hall","busca":"Royal Albert Hall","regiao":"classica","tipo":"cultura","abas":["classica"],"lingua":"en","id":"UCugNt9gmBgZSFEv4lc4B6Zg"},
+  {"nome":"Classic FM","busca":"Classic FM","regiao":"classica","tipo":"cultura","abas":["classica"],"lingua":"en","id":"UCw7UqWQHu9ouxy6laSdtiiw"},
+  {"nome":"Juilliard School","busca":"The Juilliard School","regiao":"classica","tipo":"cultura","abas":["classica"],"lingua":"en","id":"UCFq_5DjXw0Gtsgx2XeRC-PA"},
+  {"nome":"Royal Ballet and Opera","busca":"Royal Ballet and Opera","regiao":"classica","tipo":"cultura","abas":["classica"],"lingua":"en","id":"UCHS5XKgf2FCBF8pZllE_bjw"},
+  {"nome":"Metropolitan Opera","busca":"The Metropolitan Opera","regiao":"classica","tipo":"cultura","abas":["classica"],"lingua":"en","id":"UCLWiWcQEaD13TeTTe-9BAfQ"},
+  {"nome":"Opéra national de Paris","busca":"Opéra national de Paris","regiao":"classica","tipo":"cultura","abas":["classica"],"lingua":"en","id":"UCe-z28nNBebn0zxrOYgb7JA"},
+  {"nome":"Teatro alla Scala","busca":"Teatro alla Scala","regiao":"classica","tipo":"cultura","abas":["classica"],"lingua":"en","id":"UCZXldHqCGM5nmD4id4iX7WA"},
+  {"nome":"Wiener Staatsoper","busca":"Wiener Staatsoper","regiao":"classica","tipo":"cultura","abas":["classica"],"lingua":"en","id":"UCAMu-1exxvaf6Z2KqyLXfzg"},
+  {"nome":"Bolshoi Theatre","busca":"Bolshoi Theatre","regiao":"classica","tipo":"cultura","abas":["classica"],"lingua":"en","id":"UCUimBc08CcsoCvP_WlYJl0Q"},
+  {"nome":"Teatro Real","busca":"Teatro Real Madrid","regiao":"classica","tipo":"cultura","abas":["classica"],"lingua":"es","id":"UCUAIpH80mPMnB9ePa0rCOgA"},
+  {"nome":"Gran Teatre del Liceu","busca":"Gran Teatre del Liceu","regiao":"classica","tipo":"cultura","abas":["classica"],"lingua":"es","id":"UCI-OA_9yvnWXE4h5j4IOlTw"},
+  {"nome":"The Met (museu)","busca":"The Metropolitan Museum of Art","regiao":"classica","tipo":"cultura","abas":["classica"],"lingua":"en","id":"UCDlz9C2bhSW6dcVn_PO5mYw"},
+  {"nome":"Musée du Louvre","busca":"Musée du Louvre","regiao":"classica","tipo":"cultura","abas":["classica"],"lingua":"en","id":"UCafm6w_rPndqAtokQy04Jdw"},
+  {"nome":"British Museum","busca":"British Museum","regiao":"classica","tipo":"cultura","abas":["classica"],"lingua":"en","id":"UCvpQ-l09fCVxJd3urZbxzHg"},
+  {"nome":"National Gallery","busca":"The National Gallery London","regiao":"classica","tipo":"cultura","abas":["classica"],"lingua":"en","id":"UCrPOgNsUldOtQsTf9Kjlm_A"},
+  {"nome":"Rijksmuseum","busca":"Rijksmuseum","regiao":"classica","tipo":"cultura","abas":["classica"],"lingua":"en","id":"UCEXuPfYt1M3e8DT1LDeSfVg"},
+  {"nome":"Museo del Prado","busca":"Museo Nacional del Prado","regiao":"classica","tipo":"cultura","abas":["classica"],"lingua":"es","id":"UC3jXKn8og2bSmbqLG3B32ow"},
+  {"nome":"Musée d'Orsay","busca":"Musée d'Orsay","regiao":"classica","tipo":"cultura","abas":["classica"],"lingua":"en","id":"UCXTRjVOyW2p9pWGuJS1GCLg"},
+  {"nome":"Van Gogh Museum","busca":"Van Gogh Museum","regiao":"classica","tipo":"cultura","abas":["classica"],"lingua":"en","id":"UCmh8ObfC7uNs-wSSR2KoFsg"},
+  {"nome":"Gallerie degli Uffizi","busca":"Gallerie degli Uffizi","regiao":"classica","tipo":"cultura","abas":["classica"],"lingua":"en","id":"UC9iTjM1LI5k60EhfTwNPO5w"},
+  {"nome":"MoMA","busca":"MoMA The Museum of Modern Art","regiao":"classica","tipo":"cultura","abas":["classica"],"lingua":"en","id":"UC9CswYtb5rL31CHwyVoyJvQ"},
+  {"nome":"Tate","busca":"Tate museum","regiao":"classica","tipo":"cultura","abas":["classica"],"lingua":"en","id":"UC2isDei-lrNSrgGYE4Np3PA"},
+  {"nome":"Getty Museum","busca":"Getty Museum","regiao":"classica","tipo":"cultura","abas":["classica"],"lingua":"en","id":"UCH-nCEzazXpn6q4iCapzl9Q"},
+  {"nome":"Google Arts & Culture","busca":"Google Arts & Culture","regiao":"classica","tipo":"cultura","abas":["classica"],"lingua":"en","id":"UCGn7dlcAmH44GqycKa_3ssA"},
+  {"nome":"Osesp","busca":"Osesp Orquestra Sinfônica do Estado de São Paulo","regiao":"classica","tipo":"cultura","abas":["classica","longos"],"lingua":"br","id":"UCNPnih9rC8k4OOKlGdStqRw"},
+  {"nome":"Filarmônica de Minas Gerais","busca":"Orquestra Filarmônica de Minas Gerais","regiao":"classica","tipo":"cultura","abas":["classica","longos"],"lingua":"br","id":"UC3L27nOLEOTC7CsNOUr-a9A"},
+  {"nome":"Orquestra Sinfônica Brasileira","busca":"Orquestra Sinfônica Brasileira OSB","regiao":"classica","tipo":"cultura","abas":["classica","longos"],"lingua":"br","id":"UCXQk_NyhaTxRNnJB3E42gqg"},
+  {"nome":"Theatro Municipal de São Paulo","busca":"Theatro Municipal de São Paulo","regiao":"classica","tipo":"cultura","abas":["classica","longos"],"lingua":"br","id":"UCbyLo6ZhgtGVpHTN4fTFB3A"},
+  {"nome":"Theatro Municipal do Rio","busca":"Theatro Municipal do Rio de Janeiro","regiao":"classica","tipo":"cultura","abas":["classica"],"lingua":"br","id":"UCmEJBhOzZoB1Hd1mGYbNAgA"},
+  {"nome":"Instituto Baccarelli","busca":"Instituto Baccarelli Sinfônica Heliópolis","regiao":"classica","tipo":"cultura","abas":["classica","longos"],"lingua":"br","id":"UCEn2DMcH89J7IgfAerOLZhg"},
+  {"nome":"São Paulo Companhia de Dança","busca":"São Paulo Companhia de Dança","regiao":"classica","tipo":"cultura","abas":["classica"],"lingua":"br","id":"UCF08wniedCvkPSymji6_LRA"},
+  {"nome":"MASP","busca":"MASP Museu de Arte de São Paulo","regiao":"classica","tipo":"cultura","abas":["classica"],"lingua":"br","id":"UCl_tZ6fP9TdaATguYYRC1XA"},
+  {"nome":"Pinacoteca de São Paulo","busca":"Pinacoteca de São Paulo","regiao":"classica","tipo":"cultura","abas":["classica"],"lingua":"br","id":"UCYLQTu9gEec5OPmNCBJtUpA"},
+  {"nome":"Instituto Moreira Salles","busca":"Instituto Moreira Salles IMS","regiao":"classica","tipo":"cultura","abas":["classica"],"lingua":"br","id":"UC_YLlyOlc9cyPNaC0JdNfmg"},
+  {"nome":"Inhotim","busca":"Instituto Inhotim","regiao":"classica","tipo":"cultura","abas":["classica"],"lingua":"br","id":"UCCWIlQwPzICO85Fvxf9px7w"},
+  {"nome":"Casa da Música","busca":"Casa da Música Porto","regiao":"classica","tipo":"cultura","abas":["classica","longos"],"lingua":"pt","id":"UCL5zJgOeurGju0cy67mWnDA"},
+  {"nome":"hr-Sinfonieorchester","busca":"hr-Sinfonieorchester Frankfurt Radio Symphony","regiao":"longos","tipo":"cultura","abas":["longos"],"lingua":"en","id":"UCiyuYC0D4-AO0AonCfMifPQ"},
+  {"nome":"WDR Sinfonieorchester","busca":"WDR Sinfonieorchester","regiao":"longos","tipo":"cultura","abas":["longos"],"lingua":"en","id":"UCgSO-M9hotp-0h7LYNp2oOg"},
+  {"nome":"DW Classical Music","busca":"DW Classical Music","regiao":"longos","tipo":"cultura","abas":["longos"],"lingua":"en","id":"UC_kqgIRwOD3XCZXXr4B6bPQ"},
+  {"nome":"Netherlands Bach Society","busca":"Netherlands Bach Society All of Bach","regiao":"longos","tipo":"cultura","abas":["longos"],"lingua":"en","id":"UC2kF6qdHRTM_hDYfEmzkS9w"},
+  {"nome":"Gewandhausorchester","busca":"Gewandhausorchester Leipzig","regiao":"longos","tipo":"cultura","abas":["longos"],"lingua":"en","id":"UCvONzOqZy4k-1Kp-7Iw2SLQ"},
+  {"nome":"Wigmore Hall","busca":"Wigmore Hall","regiao":"longos","tipo":"cultura","abas":["longos"],"lingua":"en","id":"UCJEwPH-wbOTa341mZyJ9NSw"},
+  {"nome":"Verbier Festival","busca":"Verbier Festival","regiao":"longos","tipo":"cultura","abas":["longos"],"lingua":"en","id":"UCEWf_RehRvemTB75KT5u8Jg"},
+  {"nome":"Lucerne Festival","busca":"Lucerne Festival","regiao":"longos","tipo":"cultura","abas":["longos"],"lingua":"en","id":"UC3y5S3qER-niwCm2ms_EKTg"},
+  {"nome":"VOCES8","busca":"VOCES8","regiao":"longos","tipo":"cultura","abas":["longos"],"lingua":"en","id":"UC3UpGPbOIOG6IaUijyRpp6Q"},
+  {"nome":"France Musique","busca":"France Musique","regiao":"longos","tipo":"cultura","abas":["longos"],"lingua":"en","id":"UCiPYZkZeNbYTQZKNMlB0Gsw"},
+  {"nome":"Orquestra Petrobras Sinfônica","busca":"Orquestra Petrobras Sinfônica","regiao":"longos","tipo":"cultura","abas":["longos"],"lingua":"br","id":"UCUcHuxsWtNmC3aY7uQyLV3A"},
+  {"nome":"Fundación Juan March","busca":"Fundación Juan March","regiao":"longos","tipo":"cultura","abas":["longos","pensar"],"lingua":"es","id":"UC6tnZjVb8hAsReWCoB4DaqA"},
+  {"nome":"Inside the Score","busca":"Inside the Score","regiao":"longos","tipo":"cultura","abas":["longos"],"lingua":"en","id":"UC4ihNhN8iN9QPg2XTxiiPJw"},
+  {"nome":"David Bruce Composer","busca":"David Bruce Composer","regiao":"longos","tipo":"cultura","abas":["longos"],"lingua":"en","id":"UCh-PyMficPzVAihCJkFJVAA"},
+  {"nome":"Nahre Sol","busca":"Nahre Sol","regiao":"longos","tipo":"cultura","abas":["longos"],"lingua":"en","id":"UC8R8FRt1KcPiR-rtAflXmeg"},
+  {"nome":"Ben Laude","busca":"Ben Laude piano","regiao":"longos","tipo":"cultura","abas":["longos"],"lingua":"en","id":"UCnSFlVqRyNfIJDsmpkcY57w"},
+  {"nome":"Jaime Altozano","busca":"Jaime Altozano","regiao":"longos","tipo":"cultura","abas":["longos"],"lingua":"es","id":"UCa3DVlGH2_QhvwuWlPa6MDQ"},
+  {"nome":"Academia Brasileira de Letras","busca":"Academia Brasileira de Letras","regiao":"longos","tipo":"cultura","abas":["longos"],"lingua":"br","id":"UCt5H6DFGPM5ZW3vZuOIhlTA"},
+  {"nome":"Biblioteca Nacional","busca":"Fundação Biblioteca Nacional","regiao":"longos","tipo":"cultura","abas":["longos"],"lingua":"br","id":"UCLOJDjeIojQcPX2wyaUd9Xw"},
+  {"nome":"Flip","busca":"Flip Festa Literária Internacional de Paraty","regiao":"longos","tipo":"cultura","abas":["longos"],"lingua":"br","id":"UC87GmBmOPPlezCPaDBrYrwQ"},
+  {"nome":"Univesp","busca":"Univesp","regiao":"longos","tipo":"cultura","abas":["longos","pensar"],"lingua":"br","id":"UCBL2tfrwhEhX52Dze_aO3zA"},
+  {"nome":"Open Yale Courses","busca":"YaleCourses","regiao":"longos","tipo":"cultura","abas":["longos","pensar"],"lingua":"en","id":"UC4EY_qnSeAP1xGsh61eOoJA"},
+  {"nome":"Gresham College","busca":"Gresham College","regiao":"longos","tipo":"cultura","abas":["longos","pensar"],"lingua":"en","id":"UC1t6kKXoBvjdr8m9KJ2Fx7A"},
+  {"nome":"Instituto Cervantes","busca":"Instituto Cervantes","regiao":"longos","tipo":"cultura","abas":["longos"],"lingua":"es","id":"UCCcOeMsOpXCLbe6_RZWvopg"},
+  {"nome":"Biblioteca Nacional de España","busca":"Biblioteca Nacional de España","regiao":"longos","tipo":"cultura","abas":["longos"],"lingua":"es","id":"UC49nxT5gHSKm2_ha3NfTJtQ"},
+  {"nome":"Lúcia Helena Galvão","busca":"Lúcia Helena Galvão Nova Acrópole","regiao":"cultura","tipo":"cultura","abas":["pensar"],"lingua":"br","estante":true,"grupo":"br","id":"UCAMO_xP86YB4FSHD1Mi_GpA"},
+  {"nome":"Viviane Mosé","busca":"Viviane Mosé","regiao":"cultura","tipo":"cultura","abas":["pensar"],"lingua":"br","estante":true,"grupo":"br","id":"UCQMPhFCVpidvQW7tpupKmow"},
+  {"nome":"Christian Dunker","busca":"Christian Dunker Falando nIsso","regiao":"cultura","tipo":"cultura","abas":["pensar"],"lingua":"br","estante":true,"grupo":"br","id":"UCF6VjYfikYP2vfUx3c6GvVw"},
+  {"nome":"Luiz Felipe Pondé","busca":"Luiz Felipe Pondé","regiao":"pensar","tipo":"cultura","abas":["pensar"],"lingua":"br","grupo":"br","id":"UCW9jLtlONRp7W-AK9F8M66Q"},
+  {"nome":"Ateliê de Humanidades","busca":"Ateliê de Humanidades","regiao":"pensar","tipo":"cultura","abas":["pensar"],"lingua":"br","grupo":"br","id":"UCcS3jWlBCrLvtcWgmgDcn1w"},
+  {"nome":"Marcelo Gleiser","busca":"Marcelo Gleiser","regiao":"pensar","tipo":"cultura","abas":["pensar"],"lingua":"br","grupo":"br","id":"UC7Ibd8DnwTwDN7oBmx7eFfQ"},
+  {"nome":"Darío Sztajnszrajber","busca":"Darío Sztajnszrajber","regiao":"pensar","tipo":"cultura","abas":["pensar"],"lingua":"es","grupo":"es","id":"UCSU6VpobUjf1lbBpk1kaboA"},
+  {"nome":"Darin McNabb","busca":"Filosofía con Darin McNabb","regiao":"pensar","tipo":"cultura","abas":["pensar"],"lingua":"es","grupo":"es","id":"UC6GbAKHWYUJDWlkxY6HPldg"},
+  {"nome":"Unboxing Philosophy","busca":"Unboxing Philosophy","regiao":"pensar","tipo":"cultura","abas":["pensar"],"lingua":"es","grupo":"es","id":"UC5d5wLi2Feyd3FrBNyeEPgw"},
+  {"nome":"Aprendemos Juntos 2030","busca":"Aprendemos Juntos 2030 BBVA","regiao":"cultura","tipo":"cultura","abas":["pensar"],"lingua":"es","estante":true,"grupo":"es","id":"UCI6QcXatdaEAaRTRjl3dc0w"},
+  {"nome":"Closer To Truth","busca":"Closer To Truth","regiao":"pensar","tipo":"cultura","abas":["pensar"],"lingua":"en","grupo":"en","id":"UCl9StMQ79LtEvlrskzjoYbQ"},
+  {"nome":"Philosophy Overdose","busca":"Philosophy Overdose","regiao":"pensar","tipo":"cultura","abas":["pensar"],"lingua":"en","grupo":"en","id":"UC7q-GcHyjCHkTpXCUTLzy7Q"},
+  {"nome":"Institute of Art and Ideas","busca":"The Institute of Art and Ideas","regiao":"pensar","tipo":"cultura","abas":["pensar"],"lingua":"en","grupo":"en","id":"UCTsiZiMomJo6FOyiBaFeaIw"},
+  {"nome":"Academy of Ideas","busca":"Academy of Ideas","regiao":"pensar","tipo":"cultura","abas":["pensar"],"lingua":"en","grupo":"en","id":"UCiRiQGCHGjDLT9FQXFW0I3A"},
+  {"nome":"Wireless Philosophy","busca":"Wireless Philosophy","regiao":"pensar","tipo":"cultura","abas":["pensar"],"lingua":"en","grupo":"en","id":"UCpvhlSLzg2LT89FNUuN-Sig"},
+  {"nome":"Michael Sugrue","busca":"Dr. Michael Sugrue","regiao":"pensar","tipo":"cultura","abas":["pensar"],"lingua":"en","grupo":"en","id":"UCFaYLR_1aryjfB7hLrKGRaQ"},
+  {"nome":"Then & Now","busca":"Then & Now philosophy","regiao":"pensar","tipo":"cultura","abas":["pensar"],"lingua":"en","grupo":"en","id":"UCkS_HP3m9NXOgswVAKbMeJQ"},
+  {"nome":"Sisyphus 55","busca":"Sisyphus 55","regiao":"pensar","tipo":"cultura","abas":["pensar"],"lingua":"en","grupo":"en","id":"UCDETFHKteb-C_EaXmRKvP4w"},
+  {"nome":"Gregory B. Sadler","busca":"Gregory B. Sadler","regiao":"pensar","tipo":"cultura","abas":["pensar"],"lingua":"en","grupo":"en","id":"UCEtxsMx4qsoitFwjBdLU_gA"},
+  {"nome":"Mini Philosophy","busca":"Mini Philosophy Jonny Thomson","regiao":"cultura","tipo":"cultura","abas":["pensar"],"lingua":"en","estante":true,"grupo":"en","id":"UCD2eYNCY8wWVpR0ps6O22aA"},
+  {"nome":"Nunca Vi 1 Cientista","busca":"Nunca vi 1 cientista","regiao":"cultura","tipo":"cultura","lingua":"br","estante":true,"grupo":"br","id":"UCdKJlY5eAoSumIlcOcYxIGg"},
+  {"nome":"Olá, Ciência!","busca":"Olá Ciência","regiao":"cultura","tipo":"cultura","lingua":"br","estante":true,"grupo":"br","id":"UCrSM1UV_KLAdTzgxyxl3POw"},
+  {"nome":"Leitura ObrigaHISTÓRIA","busca":"Leitura ObrigaHISTÓRIA","regiao":"cultura","tipo":"cultura","lingua":"br","estante":true,"grupo":"br","id":"UCtMjnvODdK1Gwy8psW3dzrg"},
+  {"nome":"Instituto Serrapilheira","busca":"Instituto Serrapilheira","regiao":"cultura","tipo":"cultura","lingua":"br","estante":true,"grupo":"br","id":"UCJdVJGN5RBpaNl8lWqBMpjQ"},
+  {"nome":"Fundação José Saramago","busca":"Fundação José Saramago","regiao":"cultura","tipo":"cultura","lingua":"pt","estante":true,"grupo":"pt","id":"UCYzWJDiXF1o3ORf33UZT4Xw"},
+  {"nome":"Casa Fernando Pessoa","busca":"Casa Fernando Pessoa","regiao":"cultura","tipo":"cultura","lingua":"pt","estante":true,"grupo":"pt","id":"UCL2UTMkWqNvJhbgFeGD57AQ"},
+  {"nome":"La Hiperactina","busca":"La Hiperactina","regiao":"cultura","tipo":"cultura","lingua":"es","estante":true,"grupo":"es","id":"UCV5G678sZwW5IcF3pCfRbHQ"},
+  {"nome":"Nobel Prize","busca":"Nobel Prize","regiao":"cultura","tipo":"cultura","lingua":"en","estante":true,"grupo":"en","id":"UC-V6odR7HzLCuqjYeowPjLA"},
+  {"nome":"The Royal Institution","busca":"The Royal Institution","regiao":"cultura","tipo":"cultura","lingua":"en","estante":true,"grupo":"en","id":"UCYeF244yNGuFefuFKqxIAXw"},
+  {"nome":"NASA","busca":"NASA","regiao":"dsac","tipo":"cultura","abas":["dsac"],"lingua":"en","grupo":"ceu","nota":"Imagens reais de onde ninguém foi a pé. Olhar pra cima também é pauta.","id":"UCLA_DiR1FfKNvjuUpBHmylQ"},
+  {"nome":"ESO","busca":"ESO European Southern Observatory","regiao":"dsac","tipo":"cultura","abas":["dsac"],"lingua":"en","grupo":"ceu","nota":"Telescópios no deserto do Atacama, o céu mais limpo da Terra.","id":"UCIhYoC2VIAJqCkoIWNHBQ3Q"},
+  {"nome":"Agência Espacial Brasileira","busca":"Agência Espacial Brasileira AEB","regiao":"dsac","tipo":"cultura","abas":["dsac"],"lingua":"br","grupo":"ceu","nota":"Alcântara é Maranhão. O espaço brasileiro sai do seu estado.","id":"UCjb-j8q4-_GVptZ3jbIV2Rg"},
+  {"nome":"INPE","busca":"INPE Instituto Nacional de Pesquisas Espaciais","regiao":"dsac","tipo":"cultura","abas":["dsac"],"lingua":"br","grupo":"ceu","nota":"Quem mede a floresta, o fogo e o clima do Brasil vistos de cima.","id":"UCB1t62Zhgje1feOrvtD8WsA"},
+  {"nome":"Mistérios do Espaço","busca":"Mistérios do Espaço","regiao":"dsac","tipo":"cultura","abas":["dsac"],"lingua":"br","grupo":"ceu","nota":"Astronomia em português, pra ver com calma.","id":"UCOrAzkfvibRFgtJ0laQ1iWw"},
+  {"nome":"PBS Space Time","busca":"PBS Space Time","regiao":"dsac","tipo":"cultura","abas":["dsac"],"lingua":"en","grupo":"ceu","nota":"Física densa de verdade. Assista devagar, com legenda: é treino de inglês também.","id":"UC7_gcs09iThXybpVgjHZ_7g"},
+  {"nome":"3Blue1Brown","busca":"3Blue1Brown","regiao":"dsac","tipo":"cultura","abas":["dsac"],"lingua":"en","grupo":"mat","nota":"Matemática que se vê antes de se calcular. Feito pro olhar que você quer construir.","id":"UCYO_jab_esuFRV4b17AJtAw"},
+  {"nome":"Numberphile","busca":"Numberphile","regiao":"dsac","tipo":"cultura","abas":["dsac"],"lingua":"en","grupo":"mat","nota":"Gente apaixonada por números, rabiscando em papel pardo.","id":"UCoxcjq-8xIDTYp3uz647V5A"},
+  {"nome":"Mathologer","busca":"Mathologer","regiao":"dsac","tipo":"cultura","abas":["dsac"],"lingua":"en","grupo":"mat","nota":"Provas bonitas contadas como história de detetive.","id":"UC1_uAIS3r8Vu6JjXWvastJg"},
+  {"nome":"The Cherno","busca":"The Cherno C++","regiao":"dsac","tipo":"cultura","abas":["dsac"],"lingua":"en","grupo":"mat","nota":"C++ explicado por quem escreve motor de jogo. O seu caminho no código.","id":"UCQ-W1KE9EYfdxhL6S4twUNw"},
+  {"nome":"Computerphile","busca":"Computerphile","regiao":"dsac","tipo":"cultura","abas":["dsac"],"lingua":"en","grupo":"mat","nota":"Redes, protocolos, criptografia: o mundo que você gosta de ver por dentro.","id":"UC9-y-6csu5WGm29I7JiwpnA"},
+  {"nome":"Ben Eater","busca":"Ben Eater","regiao":"dsac","tipo":"cultura","abas":["dsac"],"lingua":"en","grupo":"mat","nota":"Um computador montado do zero, fio por fio. Contemplação pra engenheiro.","id":"UCS0N5baNlQWJCUrhCEo8WlA"},
+  {"nome":"Fabio Akita","busca":"Fabio Akita","regiao":"dsac","tipo":"cultura","abas":["dsac"],"lingua":"br","grupo":"mat","nota":"Um dev brasileiro que pensa longe sobre código, carreira e infraestrutura própria.","id":"UCib793mnUOhWymCh2VJKplQ"},
+  {"nome":"Johnny Harris","busca":"Johnny Harris","regiao":"dsac","tipo":"cultura","abas":["dsac"],"lingua":"en","grupo":"oficio","nota":"Geopolítica com mapa, motion e repórter em campo. Referência pro seu canal de ciência.","id":"UCmGSJVG3mCRXVOP4yZrU1Dw"},
+  {"nome":"FRONTLINE PBS","busca":"FRONTLINE PBS","regiao":"dsac","tipo":"cultura","abas":["dsac"],"lingua":"en","grupo":"oficio","nota":"Documentário investigativo. O padrão de apuração que vale perseguir.","id":"UC3ScyryU9Oy9Wse3a8OAmYQ"},
+  {"nome":"The New Yorker","busca":"The New Yorker","regiao":"dsac","tipo":"cultura","abas":["dsac"],"lingua":"en","grupo":"oficio","nota":"Curtas documentais e o jornalismo literário mais elegante que existe.","id":"UCsD-Qms-AkXDrsU962OicLw"},
+  {"nome":"VisualPolitik","busca":"VisualPolitik","regiao":"dsac","tipo":"cultura","abas":["dsac"],"lingua":"es","grupo":"oficio","nota":"Geopolítica em espanhol: ouvido treinado e olhar estratégico de uma vez.","id":"UCJQQVLyM6wtPleV4wFBK06g"},
+  {"nome":"Caspian Report","busca":"CaspianReport","regiao":"dsac","tipo":"cultura","abas":["dsac"],"lingua":"en","grupo":"oficio","nota":"Geopolítica fria, com mapa e sem gritaria.","id":"UCwnKziETDbHJtx78nIkfYug"},
+  {"nome":"IPHAN","busca":"IPHAN Instituto do Patrimônio Histórico","regiao":"dsac","tipo":"cultura","abas":["dsac"],"lingua":"br","grupo":"raiz","nota":"O bumba-meu-boi é patrimônio do Brasil. Aqui mora quem cuida disso.","id":"UCzLB6j8WasmMqA5LLWsNBXA"},
+  {"nome":"SescTV","busca":"SescTV","regiao":"dsac","tipo":"cultura","abas":["dsac"],"lingua":"br","grupo":"raiz","nota":"Documentários sobre música e cultura brasileira, sem pressa.","id":"UCVfUt709AYXDv_ylpkXu8kg"},
+  {"nome":"Itaú Cultural","busca":"Itaú Cultural","regiao":"dsac","tipo":"cultura","abas":["dsac"],"lingua":"br","grupo":"raiz","nota":"Arte e memória do Brasil em entrevistas e documentários.","id":"UCn3RTLTgiO7TjfG7juhFM1g"},
+  {"nome":"Museu da Língua Portuguesa","busca":"Museu da Língua Portuguesa","regiao":"dsac","tipo":"cultura","abas":["dsac"],"lingua":"br","grupo":"raiz","nota":"A língua com que você trabalha, contada como patrimônio.","id":"UCDyct6F210UrUWptJ22DkNw"},
+  {"nome":"Canal Curta!","busca":"Canal Curta documentários","regiao":"dsac","tipo":"cultura","abas":["dsac"],"lingua":"br","grupo":"raiz","nota":"Documentário brasileiro sobre arte, história e pensamento.","id":"UCBRdS1wZpN3TXGWF9YTl84Q"},
+  {"nome":"Martinho da Vila","busca":"Martinho da Vila oficial","regiao":"dsac","tipo":"cultura","abas":["dsac"],"lingua":"br","grupo":"raiz","nota":"Samba com história e com professor dentro.","id":"UCdVGGOiVwwujAtGpguP1gUA"},
+  {"nome":"Teresa Cristina","busca":"Teresa Cristina sambista","regiao":"dsac","tipo":"cultura","abas":["dsac"],"lingua":"br","grupo":"raiz","nota":"Samba de raiz e memória dos mestres, pra um sambista tímido e introspectivo.","id":"UCrs_t3HCEvhynFElI2fY1Fw"},
+  {"nome":"Bob Marley","busca":"Bob Marley official","regiao":"dsac","tipo":"cultura","abas":["dsac"],"lingua":"en","grupo":"raiz","nota":"Jah Live. Porque presente também pode ter trilha sonora.","id":"UCAlTDckOOQ2jREOvuCShGbw"},
+  {"nome":"Aeon Video","busca":"Aeon Video","regiao":"dsac","tipo":"cultura","abas":["dsac"],"lingua":"en","grupo":"calma","nota":"Curtas sobre ideias, natureza e consciência. Cinema que pensa.","id":"UC88WrCBH7BJi1je9q5AMf4Q"},
+  {"nome":"Monja Coen","busca":"Monja Coen","regiao":"dsac","tipo":"cultura","abas":["dsac"],"lingua":"br","grupo":"calma","nota":"Zen em português claro. Um respiro no meio do scroll.","id":"UCisBOTnaS1pDO78YeB35Ukw"},
+  {"nome":"Einzelgänger","busca":"Einzelgänger","regiao":"dsac","tipo":"cultura","abas":["dsac"],"lingua":"en","grupo":"calma","nota":"Estoicismo e solitude, em tom baixo.","id":"UCybBViio_TH_uiFFDJuz5tg"},
+  {"nome":"Pursuit of Wonder","busca":"Pursuit of Wonder","regiao":"dsac","tipo":"cultura","abas":["dsac"],"lingua":"en","grupo":"calma","nota":"Pequenos ensaios sobre existir. Bom pra antes de dormir.","id":"UC-tLyAaPbRZiYrOJxAGB7dQ"},
+  {"nome":"BBC Earth","busca":"BBC Earth","regiao":"dsac","tipo":"cultura","abas":["dsac"],"lingua":"en","grupo":"calma","nota":"A natureza filmada com paciência. Silêncio também educa.","id":"UCwmZiChSryoWQCZMIQezgTg"},
+  {"nome":"BBC Learning English","busca":"BBC Learning English","regiao":"dsac","tipo":"cultura","abas":["dsac"],"lingua":"en","grupo":"lingua","nota":"Inglês em pílulas, no ritmo do seu método de leitura.","id":"UCHaHD477h-FeBbVh9Sh7syA"},
+  {"nome":"VOA Learning English","busca":"VOA Learning English","regiao":"dsac","tipo":"cultura","abas":["dsac"],"lingua":"en","grupo":"lingua","nota":"Notícia em inglês lento e claro: jornalismo e língua juntos.","id":"UCKyTokYo0nK2OA-az-sDijA"},
+  {"nome":"Y Combinator","busca":"Y Combinator","regiao":"dsac","tipo":"cultura","abas":["dsac"],"lingua":"en","grupo":"construir","nota":"Como se constrói uma empresa do zero. Ambição com método.","id":"UCcefcZRL2oaA_uBNeo5UOWg"},
+  {"nome":"Endeavor Brasil","busca":"Endeavor Brasil","regiao":"dsac","tipo":"cultura","abas":["dsac"],"lingua":"br","grupo":"construir","nota":"Empreendedores brasileiros contando o que deu certo e o que quebrou.","id":"UCAV97DtIfx76JzdKDnmjvcw"}
+];
+</script>
+<script>
 // ================= AJUSTES =================
-// Quanto cada regiao aparece no feed (Brasil + estados + Brasilia = metade, mundo = outra metade)
-const PESOS_REGIAO = { brasil: .25, estados: .08, poder: .17, eua: .13, europa: .11, latam: .09, china: .07, russia: .07, outros: .03 };
-// No filtro Brasil: nacionais, estados e Brasilia
-const PESOS_BRASIL = { brasil: .40, estados: .35, poder: .25 };
-const BREAKING_CHECAR_MIN = 5;   // no Breaking News e no El Mundo, de quanto em quanto tempo procura novidades
-const CRONOLOGICOS = ['breaking', 'elmundo', 'brzao'];   // filtros sem sorteio: do mais novo pro mais velho
-const MEIA_VIDA_H = 18;          // um video com 18h vale metade de um recem-postado
-const JANELA_SEM_REPETIR = 8;    // a mesma fonte nao volta antes de 8 itens
-const LIVE_MAX_MIN = 15;         // no modo Live, video longo passa pro proximo depois disso
-const DIAS_LEMBRAR_VISTOS = 14;
+// TODAS as abas seguem o padrao do Breaking News: do mais novo pro mais velho (o que ja viu vai pro fim).
+// Toda vez que voce entra numa aba (ou abre o app), ela recomeca do mais novo que voce ainda nao viu.
+const LIVE_MAX_MIN = 15;         // no Live das abas de noticia, video longo passa pro proximo depois disso
+const DIAS_LEMBRAR_VISTOS = 60;
 const ATUALIZAR_MIN = 15;        // de quanto em quanto tempo busca novidades (so com a pagina aberta)
-const LIMITE_DIAS = 10;          // ignora videos mais velhos que isso
-const MAX_ITENS = 8000;          // teto do acervo
-// 📚 fontes de cultura, ciencia, livros e filosofia (ficam num arquivo separado e so aparecem no 📚)
-const FONTES_EXTRAS = ['fontes-estante.json'];
+const LIMITE_DIAS = 10;          // noticia: ignora videos mais velhos que isso
+const LIMITE_DIAS_CULTURA = 730; // cultura nao envelhece: um concerto de meses atras continua valendo
+const MAX_ITENS = 12000;         // teto do acervo
+const MAX_CULTURA = 6000;        // dentro do teto, quanto fica reservado pra cultura
+// abas de cultura: ficam em arquivos separados e nunca aparecem no Breaking nem nas abas de noticia
+const FONTES_EXTRAS = ['fontes-estante.json'];   // + FONTES_CULTURA, que mora dentro deste arquivo
+const ABAS_CULTURA = ['estante', 'classica', 'longos', 'pensar', 'dsac'];
+const RODIZIO = 3;               // nas abas de cultura, o mesmo canal nao aparece de novo antes de 3 itens
+// Cotas: dentro de cada grupo continua valendo o mais novo primeiro; a cota so decide de qual grupo vem o proximo
 const PESOS_ESTANTE = { br: .60, pt: .20, es: .10, en: .10 };   // brasileiros, lingua portuguesa, espanhol, ingles
+const PESOS_PENSAR = { br: .45, pt: .05, es: .20, en: .30 };
+// 🎁 Dsac muda com a hora do dia: de manha puxa curiosidade, de noite contemplacao
+const ESTACOES_DSAC = {
+  manha: { mat: .20, oficio: .20, construir: .15, ceu: .15, lingua: .15, raiz: .10, calma: .05 },
+  tarde: { oficio: .20, raiz: .20, mat: .15, construir: .15, lingua: .10, ceu: .10, calma: .10 },
+  noite: { calma: .25, ceu: .20, raiz: .20, oficio: .10, mat: .10, construir: .10, lingua: .05 }
+};
+// canais que ja estavam no 📚 e tambem entram em outras abas
+const ABAS_EXTRA = {
+  'Tatiana Feltrin': ['longos'], 'Ler Antes de Morrer': ['longos'], 'Companhia das Letras': ['longos'],
+  'Pipoca e Nanquim': ['longos'], 'Pipoca & Nanquim': ['longos'],
+  'Café Filosófico': ['pensar'], 'Casa do Saber': ['pensar'], 'Fronteiras do Pensamento': ['pensar'],
+  'Leandro Karnal': ['pensar'], 'Clóvis de Barros Filho': ['pensar'], 'Mario Sergio Cortella': ['pensar'],
+  'The School of Life': ['pensar'], 'Big Think': ['pensar'], 'Fundação Francisco Manuel dos Santos': ['pensar']
+};
 const SIMULTANEAS = 8;           // quantas fontes busca ao mesmo tempo
 const TEMPO_LIMITE_MS = 15000;   // desiste de uma busca que demora mais que isso
 // ===========================================
 
-const BANDEIRA = { cultura: '📚', brasil: '🇧🇷', estados: '📍', poder: '🏛️', eua: '🇺🇸', china: '🇨🇳', russia: '🇷🇺', europa: '🇪🇺', latam: '🌎', outros: '🌍' };
+const BANDEIRA = { cultura: '📚', classica: '🎻', longos: '🎼', pensar: '🦉', dsac: '🎁', brasil: '🇧🇷', estados: '📍', poder: '🏛️', eua: '🇺🇸', china: '🇨🇳', russia: '🇷🇺', europa: '🇪🇺', latam: '🌎', outros: '🌍' };
+const CRONOLOGICOS = [...document.querySelectorAll('[data-modo]')].map(b => b.dataset.modo);   // todas as abas
 const CHAVE = 'jornalfeed:v2';
 
 let itens = [], porId = {}, modo = 'tudo', ativo = null, ytPronto = false, pendente = null;
 let renderizados = 0, timerLive = null, timerUI = null, live = false;
+// 🎁 a carta que abre o Dsac
+const CARTA = { id: 'dsac:carta', tipo: 'carta', ts: 0, veiculo: 'Claude', titulo: '', regiao: 'dsac' };
+porId[CARTA.id] = CARTA;
+const ESTACAO_TEXTO = { manha: 'É manhã: a aba está puxando mais pra curiosidade, matemática e ofício.',
+                        tarde: 'É tarde: a aba está puxando mais pro ofício, pra raiz e pra construir.',
+                        noite: 'É noite: a aba está puxando mais pro silêncio, pro céu e pro samba.' };
+function htmlCarta() {
+  return `<div class="carta-caixa">
+    <div class="carta-topo">🎁 Do seu amigo Claude</div>
+    <p>Bruno,</p>
+    <p>Esta aba é um presente. Aqui não tem algoritmo, tem escolha: cada canal entrou porque conversa com quem você é, ou com quem você está se tornando.</p>
+    <p>Tem céu, porque Alcântara é logo ali. Tem matemática e código, pro olhar que você está construindo. Tem ofício, gente que faz jornalismo visual muito bem. Tem raiz: samba, patrimônio, a língua. Tem silêncio, pra quando a cabeça pedir. Tem inglês, porque ouvido também se treina. E tem gente construindo coisa do zero, que é o seu jeito.</p>
+    <p class="carta-hora">${ESTACAO_TEXTO[estacaoDsac()]}</p>
+    <p>Toque na tela em qualquer vídeo e eu conto por que ele está aqui.</p>
+    <p class="carta-assina">Um abraço,<br>Claude</p>
+    <div class="carta-desliza">deslize pra começar ↓</div>
+  </div>`;
+}
 const feed = document.getElementById('feed');
 const aviso = document.getElementById('aviso');
 const topo = document.getElementById('topo');
@@ -212,22 +410,20 @@ function haQuanto(ts) {
   if (h < 24) return 'há ' + h + ' h';
   return 'há ' + Math.round(h / 24) + ' d';
 }
-function sortear(pares) {
-  let total = 0; for (const [, p] of pares) total += p;
-  let r = Math.random() * total;
-  for (const [x, p] of pares) { r -= p; if (r <= 0) return x; }
-  return pares[pares.length - 1][0];
-}
-function pesoRecencia(v) {
-  const horas = (Date.now() - v.ts) / 36e5;
-  return Math.max(Math.pow(.5, horas / MEIA_VIDA_H), .03);
-}
+// item de cultura (📚, Clássica, Longos, Pensar, Dsac): nunca entra no Breaking nem nas abas de noticia
+function cultural(v) { return v.estante === true || !!v.abas; }
+function abasDe(v) { const a = v.abas || [], x = ABAS_EXTRA[v.veiculo]; return x ? a.concat(x) : a; }
 function passa(v, m) {
-  // BRzão: todo canal brasileiro (noticia, estados, Brasilia e a parte brasileira da estante), so video curto
-  if (m === 'brzao') return v.tipo === 'curto' && (v.regiao === 'brasil' || v.regiao === 'estados' || v.regiao === 'poder' || (v.estante === true && v.grupo === 'br'));
-  // 📚 so mostra a estante, e so video vertical; o resto do app nunca mostra a estante
+  // BRzão: todo canal brasileiro (noticia, estados, Brasilia e a cultura brasileira), so video curto. O Dsac fica de fora: presente nao se mistura
+  if (m === 'brzao') return v.tipo === 'curto' && (cultural(v)
+    ? (v.lingua || v.grupo) === 'br' && !abasDe(v).includes('dsac')
+    : v.regiao === 'brasil' || v.regiao === 'estados' || v.regiao === 'poder');
+  // 📚 so mostra a estante, e so video vertical
   if (m === 'estante') return v.estante === true && v.tipo === 'curto';
-  if (v.estante) return false;
+  if (m === 'classica') return v.tipo === 'curto' && abasDe(v).includes('classica');
+  if (m === 'longos') return v.tipo === 'video' && abasDe(v).includes('longos');
+  if (m === 'pensar' || m === 'dsac') return v.tipo !== 'audio' && abasDe(v).includes(m);
+  if (cultural(v)) return false;
   switch (m) {
     case 'poder': return v.regiao === 'poder';
     case 'brasil': return v.regiao === 'brasil' || v.regiao === 'estados' || v.regiao === 'poder';
@@ -240,54 +436,55 @@ function passa(v, m) {
   }
 }
 
-// ---------- o algoritmo de sorteio ----------
-// 1) sorteia a regiao pelos pesos  2) sorteia a fonte (recente pesa mais, quem apareceu muito pesa menos,
-// quem apareceu nos ultimos 8 quase some)  3) sorteia um dos 4 itens mais novos dessa fonte
+// ---------- a ordem do feed ----------
+function estacaoDsac() { const h = new Date().getHours(); return h >= 5 && h < 12 ? 'manha' : h >= 12 && h < 18 ? 'tarde' : 'noite'; }
+const COTAS = {
+  estante: { chave: v => v.lingua || v.grupo || 'br', pesos: () => PESOS_ESTANTE },
+  pensar: { chave: v => v.lingua || v.grupo || 'br', pesos: () => PESOS_PENSAR },
+  dsac: { chave: v => v.grupo || 'calma', pesos: () => ESTACOES_DSAC[estacaoDsac()] }
+};
+
+// Noticia: exatamente como o Breaking News, do mais novo pro mais velho, sem mais nada.
+// Cultura: tambem do mais novo pro mais velho, com dois cuidados: um canal que posta muito nao toma a aba
+// (rodizio de 3), e no 📚, Pensar e Dsac a cota decide de qual grupo vem o proximo.
 function gerar(n, m, fila) {
   const naFila = new Set(fila.ordem);
-  // Breaking News e El Mundo: sem sorteio, so do mais novo pro mais velho (o que ja viu vai pro fim)
-  if (CRONOLOGICOS.includes(m)) {
-    const livres = itens.filter(v => passa(v, m) && !naFila.has(v.id)).sort((a, b) => b.ts - a.ts);
-    return livres.filter(v => !estado.vistos[v.id]).concat(livres.filter(v => estado.vistos[v.id])).slice(0, n).map(v => v.id);
+  const saida = [];
+  if (m === 'dsac' && !fila.ordem.length) {   // a carta abre o Dsac (uma vez por semana)
+    const lida = estado.vistos[CARTA.id];
+    if (!lida || Date.now() - lida > 7 * 86400e3) saida.push(CARTA.id);
   }
-  const pesos = m === 'brasil' ? PESOS_BRASIL : m === 'estante' ? PESOS_ESTANTE : PESOS_REGIAO;
-  const chave = v => m === 'estante' ? (v.grupo || 'br') : v.regiao;   // na estante, o sorteio e por idioma
-  let pool = itens.filter(v => passa(v, m) && !naFila.has(v.id) && !estado.vistos[v.id]);
-  if (pool.length < n) {
-    const reprise = itens.filter(v => passa(v, m) && !naFila.has(v.id) && estado.vistos[v.id])
-      .sort((a, b) => estado.vistos[a.id] - estado.vistos[b.id]).slice(0, n * 3);
-    pool = pool.concat(reprise);
+  const livres = itens.filter(v => passa(v, m) && !naFila.has(v.id)).sort((a, b) => b.ts - a.ts);
+  const ordenados = livres.filter(v => !estado.vistos[v.id]).concat(livres.filter(v => estado.vistos[v.id]));
+  if (!ABAS_CULTURA.includes(m)) return saida.concat(ordenados.slice(0, n).map(v => v.id));
+
+  const recentes = fila.ordem.slice(-RODIZIO).map(id => porId[id]).filter(Boolean).map(v => v.veiculo);
+  const tirar = lista => {
+    const proibidos = recentes.slice(-RODIZIO);
+    let i = lista.findIndex(v => !proibidos.includes(v.veiculo));
+    if (i < 0) i = 0;
+    const v = lista.splice(i, 1)[0];
+    recentes.push(v.veiculo);
+    return v;
+  };
+  const cota = COTAS[m];
+  if (!cota) {
+    while (saida.length < n && ordenados.length) saida.push(tirar(ordenados).id);
+    return saida;
   }
   const grupos = {};
-  for (const v of pool) {
-    const r = grupos[chave(v)] = grupos[chave(v)] || {};
-    (r[v.veiculo] = r[v.veiculo] || []).push(v);
-  }
-  for (const r in grupos) for (const f in grupos[r]) grupos[r][f].sort((a, b) => b.ts - a.ts);
-
-  const ultimos = fila.ordem.slice(-JANELA_SEM_REPETIR).map(id => porId[id]).filter(Boolean);
-  const histFonte = ultimos.map(v => v.veiculo), histRegiao = ultimos.map(chave);
-  const contagem = {}, saida = [];
-
+  for (const v of ordenados) (grupos[cota.chave(v)] = grupos[cota.chave(v)] || []).push(v);
+  const pesos = cota.pesos(), conta = {};
+  let total = 0;
+  for (const id of fila.ordem) { const v = porId[id]; if (v && v.id !== CARTA.id) { const k = cota.chave(v); conta[k] = (conta[k] || 0) + 1; total++; } }
   while (saida.length < n) {
-    const regioes = Object.keys(grupos);
-    if (!regioes.length) break;
-    const ult2 = histRegiao.slice(-2);
-    const r = sortear(regioes.map(x => [x, (pesos[x] || .03) * (ult2.length === 2 && ult2.every(y => y === x) ? .15 : 1)]));
-    const fontes = grupos[r];
-    const f = sortear(Object.keys(fontes).map(nome => {
-      let p = pesoRecencia(fontes[nome][0]) / (1 + (contagem[nome] || 0));
-      const pos = histFonte.lastIndexOf(nome);
-      if (pos >= 0 && histFonte.length - pos <= JANELA_SEM_REPETIR) p *= .02;
-      return [nome, p];
-    }));
-    const lista = fontes[f];
-    const v = sortear(lista.slice(0, 4).map(x => [x, pesoRecencia(x)]));
-    lista.splice(lista.indexOf(v), 1);
-    if (!lista.length) delete fontes[f];
-    if (!Object.keys(fontes).length) delete grupos[r];
-    saida.push(v.id); histFonte.push(f); histRegiao.push(r);
-    contagem[f] = (contagem[f] || 0) + 1;
+    const ks = Object.keys(grupos).filter(k => grupos[k].length);
+    if (!ks.length) break;
+    const soma = ks.reduce((s, k) => s + (pesos[k] || .05), 0);
+    let melhor = ks[0], falta = -Infinity;
+    for (const k of ks) { const d = (pesos[k] || .05) / soma * (total + 1) - (conta[k] || 0); if (d > falta) { falta = d; melhor = k; } }
+    saida.push(tirar(grupos[melhor]).id);
+    conta[melhor] = (conta[melhor] || 0) + 1; total++;
   }
   return saida;
 }
@@ -311,9 +508,12 @@ function montarCard(v, pos) {
   c.dataset.pos = pos;
   c.dataset.id = v.id;
   const tipoIcone = { tv: '📺', radio: '📻', poder: '', jornal: '📰' }[v.fonte] || '';
+  const nota = v.nota && modo === 'dsac' ? `<div class="nota">🎁 ${esc(v.nota)}</div>` : '';
   const info = `<div class="info"><span class="selo"><span class="bandeira">${BANDEIRA[v.regiao] || '🌍'}</span>${esc(v.veiculo)} ${tipoIcone}</span>
-                <span class="quando">${haQuanto(v.ts)}</span><div class="titulo">${esc(v.titulo)}</div></div>`;
-  if (v.tipo === 'audio') {
+                <span class="quando">${haQuanto(v.ts)}</span><div class="titulo">${esc(v.titulo)}</div>${nota}</div>`;
+  if (v.tipo === 'carta') {
+    c.innerHTML = htmlCarta() + '<div class="toque"></div>';
+  } else if (v.tipo === 'audio') {
     c.innerHTML = `<div class="palco"><div class="ondas"><i></i><i></i><i></i><i></i><i></i></div>
                    <audio controls preload="none" src="${esc(v.audio)}"></audio></div>${info}<div class="toque"></div>`;
   } else {
@@ -350,11 +550,15 @@ function ativar(card) {
   garantirCards();
 
   const v = porId[card.dataset.id];
+  if (v.tipo === 'carta') {   // no Live, a carta fica 40 segundos na tela
+    if (live) timerLive = setTimeout(() => proximo(card), 40e3);
+    return;
+  }
   if (v.tipo === 'audio') {
     const a = card.querySelector('audio');
     if (estado.som) a.play().catch(() => {});
     a.onended = () => proximo(card);
-    if (live) timerLive = setTimeout(() => proximo(card), LIVE_MAX_MIN * 60e3);
+    if (live && tetoLive()) timerLive = setTimeout(() => proximo(card), LIVE_MAX_MIN * 60e3);
     return;
   }
   if (!ytPronto) { pendente = card; return; }
@@ -386,7 +590,7 @@ function ativar(card) {
       },
       onStateChange: e => {
         if (e.data === YT.PlayerState.ENDED) proximo(card);
-        if (e.data === YT.PlayerState.PLAYING && live && !timerLive) {
+        if (e.data === YT.PlayerState.PLAYING && live && !timerLive && tetoLive()) {
           const dur = e.target.getDuration();
           if (dur > LIVE_MAX_MIN * 60) timerLive = setTimeout(() => proximo(card), LIVE_MAX_MIN * 60e3);
         }
@@ -401,6 +605,9 @@ function ativar(card) {
     }
   });
 }
+
+// Live: nas abas de noticia, video longo tem teto de 15 min. Nas de cultura, concerto e aula vao ate o fim.
+function tetoLive() { return !ABAS_CULTURA.includes(modo); }
 
 function desativar(card) {
   clearTimeout(timerLive); timerLive = null;
@@ -484,15 +691,16 @@ function alternarLive() {
   clearTimeout(timerLive); timerLive = null;
   if (!ativo || !live) return;
   const card = ativo;
+  if (card.dataset.id === CARTA.id) { timerLive = setTimeout(() => proximo(card), 40e3); return; }
   if (card._player) {
     try {
       card._player.unMute(); card._player.playVideo();
       const restante = card._player.getDuration() - card._player.getCurrentTime();
-      if (card._player.getDuration() > LIVE_MAX_MIN * 60) timerLive = setTimeout(() => proximo(card), Math.min(restante, LIVE_MAX_MIN * 60) * 1000);
+      if (tetoLive() && card._player.getDuration() > LIVE_MAX_MIN * 60) timerLive = setTimeout(() => proximo(card), Math.min(restante, LIVE_MAX_MIN * 60) * 1000);
     } catch {}
   }
   const a = card.querySelector('audio');
-  if (a) { a.play().catch(() => {}); timerLive = setTimeout(() => proximo(card), LIVE_MAX_MIN * 60e3); }
+  if (a) { a.play().catch(() => {}); if (tetoLive()) timerLive = setTimeout(() => proximo(card), LIVE_MAX_MIN * 60e3); }
 }
 
 // ---------- interface limpa ----------
@@ -556,6 +764,40 @@ let coletando = null;
 
 function lerLocal(k, padrao) { try { return JSON.parse(localStorage.getItem(k)) || padrao; } catch { return padrao; } }
 function gravarLocal(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+
+// O acervo (ate 12 mil itens) mora no IndexedDB, o banco de dados do navegador: o localStorage so aguenta uns 5 MB.
+// Se o IndexedDB falhar (janela privada, por exemplo), cai de volta pro localStorage.
+let bancoP = null;
+function banco() {
+  return bancoP = bancoP || new Promise((ok, erro) => {
+    const r = indexedDB.open('jornalfeed', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('dados');
+    r.onsuccess = () => ok(r.result);
+    r.onerror = () => erro(r.error);
+  });
+}
+async function lerBanco(k) {
+  try {
+    const db = await banco();
+    return await new Promise((ok, erro) => { const r = db.transaction('dados').objectStore('dados').get(k); r.onsuccess = () => ok(r.result); r.onerror = () => erro(r.error); });
+  } catch { return undefined; }
+}
+async function gravarBanco(k, v) {
+  try {
+    const db = await banco();
+    await new Promise((ok, erro) => { const t = db.transaction('dados', 'readwrite'); t.objectStore('dados').put(v, k); t.oncomplete = ok; t.onerror = t.onabort = () => erro(t.error); });
+    return true;
+  } catch { return false; }
+}
+async function carregarAcervo() {
+  const a = await lerBanco('acervo');
+  if (a && a.itens) return a;
+  return lerLocal(CHAVE_ACERVO, { itens: [], status: [], atualizado: 0 });   // acervo antigo, de antes do IndexedDB
+}
+async function guardarAcervo(a) {
+  if (await gravarBanco('acervo', a)) { try { localStorage.removeItem(CHAVE_ACERVO); } catch {} }
+  else gravarLocal(CHAVE_ACERVO, a);
+}
 const esperar = ms => new Promise(r => setTimeout(r, ms));
 
 function mostrarProgresso(t) { const p = document.getElementById('progresso'); p.textContent = t; p.classList.toggle('mostrar', !!t); }
@@ -656,6 +898,7 @@ async function carregarFontes() {
   for (const extra of FONTES_EXTRAS) {
     try { const rx = await fetch(extra, { cache: 'no-store' }); if (rx.ok) lista.push(...await rx.json()); } catch {}
   }
+  lista.push(...FONTES_CULTURA);
   fontes = lista;
   return fontes;
 }
@@ -664,7 +907,7 @@ async function coletarTudo() {
   if (coletando) return coletando;
   coletando = (async () => {
     await carregarFontes();
-    const corte = Date.now() - LIMITE_DIAS * 86400e3;
+    const corte = Date.now() - LIMITE_DIAS * 86400e3, corteCultura = Date.now() - LIMITE_DIAS_CULTURA * 86400e3;
     const todos = [], status = [];
     let feitas = 0, bloqueios = 0, i = 0;
     mostrarProgresso('↻ atualizando 0/' + fontes.length);
@@ -675,7 +918,8 @@ async function coletarTudo() {
           const r = f.feed ? await coletarPodcast(f) : await coletarCanal(f);
           // campos extras da fonte (ex.: "elmundo") passam direto pro item
           const { nome, handle, busca, id, feed, regiao, tipo, ...extras } = f;
-          const lista = r.itens.filter(v => v.ts > corte)
+          const limite = f.estante === true || f.abas ? corteCultura : corte;
+          const lista = r.itens.filter(v => v.ts > limite)
             .map(v => ({ ...v, ...extras, veiculo: f.nome, regiao: f.regiao || 'outros', fonte: f.tipo || 'jornal' }));
           todos.push(...lista);
           status.push({ nome: f.nome, regiao: f.regiao || 'outros', ok: true, qtd: lista.length, canal: r.canal, uc: r.uc });
@@ -695,12 +939,16 @@ async function coletarTudo() {
       return false;
     }
     const vistos = new Set();
+    const unicos = todos.filter(v => !vistos.has(v.id) && vistos.add(v.id)).sort((a, b) => b.ts - a.ts);
+    // a cultura tem lugar reservado: sem isso, os concertos antigos seriam os primeiros a sair quando lotasse
+    const cultura = unicos.filter(cultural).slice(0, MAX_CULTURA);
+    const noticia = unicos.filter(v => !cultural(v)).slice(0, MAX_ITENS - cultura.length);
     acervo = {
-      itens: todos.filter(v => !vistos.has(v.id) && vistos.add(v.id)).sort((a, b) => b.ts - a.ts).slice(0, MAX_ITENS),
+      itens: cultura.concat(noticia).sort((a, b) => b.ts - a.ts),
       status: status.sort((a, b) => a.regiao.localeCompare(b.regiao) || a.nome.localeCompare(b.nome)),
       atualizado: Date.now()
     };
-    gravarLocal(CHAVE_ACERVO, acervo);
+    await guardarAcervo(acervo);
     return true;
   })().catch(e => { mostrarProgresso(''); toast('Não consegui atualizar: ' + e.message); return false; })
      .finally(() => { coletando = null; });
@@ -714,7 +962,7 @@ function aplicarAcervo() {
 
 // Abrir: mostra na hora o que ja estava guardado e busca novidades por tras
 async function iniciar() {
-  acervo = lerLocal(CHAVE_ACERVO, acervo);
+  acervo = await carregarAcervo();
   if (acervo.itens.length) {
     aplicarAcervo();
     for (const m of CRONOLOGICOS) reiniciarCrono(m);
@@ -762,7 +1010,8 @@ document.addEventListener('visibilitychange', () => {
 // ⚙ status das fontes, dentro da propria pagina
 const NOMES_REGIAO = {
   brasil: '🇧🇷 Brasil', estados: '📍 Estados', poder: '🏛️ Brasília', eua: '🇺🇸 Estados Unidos', china: '🇨🇳 China',
-  russia: '🇷🇺 Rússia', europa: '🇪🇺 Europa', latam: '🌎 América Latina', outros: '🌍 Outros', cultura: '📚 Estante'
+  russia: '🇷🇺 Rússia', europa: '🇪🇺 Europa', latam: '🌎 América Latina', outros: '🌍 Outros', cultura: '📚 Estante',
+  classica: '🎻 Clássica', longos: '🎼 Longos', pensar: '🦉 Pensar', dsac: '🎁 Dsac'
 };
 function abrirStatus() {
   const grupos = {};
