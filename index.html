@@ -91,6 +91,11 @@
           padding: max(10px, env(safe-area-inset-top)) 12px 18px; overflow-x: auto; scrollbar-width: none;
           background: linear-gradient(rgba(0,0,0,.7), transparent); transition: opacity .5s; }
   #topo::-webkit-scrollbar { display: none; }
+  /* computador (mouse): os botoes quebram em duas linhas em vez de sumirem pra direita */
+  @media (hover: hover) and (pointer: fine) {
+    #topo { flex-wrap: wrap; overflow-x: visible; padding-bottom: 26px; }
+    .sep { display: none; }
+  }
   .chip { flex: none; border: 1px solid var(--borda); background: var(--vidro); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
           border-radius: 999px; padding: 8px 15px; font-size: 14px; font-weight: 500; text-decoration: none; color: var(--texto); }
   .chip.ativo { background: var(--ouro); color: #111; border-color: var(--ouro); }
@@ -720,6 +725,25 @@ function esconderUI() {
 function alternarUI() { document.body.classList.contains('ui') ? esconderUI() : mostrarUI(); }
 // mexeu nos botoes do topo: conta o tempo de novo pra eles nao sumirem na sua mao
 topo.addEventListener('pointerdown', () => { if (document.body.classList.contains('ui')) mostrarUI(); });
+// janela estreita no computador: a rodinha do mouse em cima dos botoes anda pros lados
+topo.addEventListener('wheel', e => {
+  if (topo.scrollWidth <= topo.clientWidth || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+  e.preventDefault(); topo.scrollLeft += e.deltaY; mostrarUI();
+}, { passive: false });
+// atalhos de teclado no computador: espaço pausa, M som, F tela cheia, L live, ↑ ↓ troca de video
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey || e.altKey || e.metaKey || /INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
+  const k = e.key.toLowerCase();
+  if (k === ' ') { e.preventDefault(); alternarPausa(); }
+  else if (k === 'm') document.getElementById('som').click();
+  else if (k === 'f') alternarTelaCheia();
+  else if (k === 'l') alternarLive();
+  else if ((k === 'arrowdown' || k === 'arrowup') && ativo) {
+    e.preventDefault();
+    const alvo = k === 'arrowdown' ? ativo.nextElementSibling : ativo.previousElementSibling;
+    if (alvo) alvo.scrollIntoView({ behavior: 'smooth' });
+  }
+});
 
 let timerIcone;
 function piscarIcone(t) {
