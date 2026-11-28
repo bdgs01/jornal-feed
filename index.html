@@ -16,7 +16,44 @@
                font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
   button { font: inherit; color: inherit; }
 
-  #feed { height: 100dvh; overflow-y: scroll; scroll-snap-type: y mandatory; overscroll-behavior: contain; scrollbar-width: none; }
+  #feed { height: 100dvh; overflow-y: scroll; scroll-snap-type: y mandatory; overscroll-behavior: contain; scrollbar-width: none;
+          position: relative; z-index: 1; }
+
+  /* 🌈 o fundo vivo: fica atras de tudo, os videos continuam exatamente do mesmo tamanho.
+     O truque de desempenho: a roda de cores e desenhada pequena, desfocada uma vez, e ampliada pela placa de video. */
+  #aurora { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; background: #000; }
+  #aurora .roda { position: absolute; left: 50%; top: 50%; width: 50vmax; height: 50vmax; margin: -25vmax 0 0 -25vmax; border-radius: 50%;
+                  background: conic-gradient(from 0deg, #ff0040, #ff8a00, #ffe500, #19ff7a, #00e1ff, #4d5cff, #c400ff, #ff0040);
+                  filter: blur(18px) saturate(1.35); will-change: transform; animation: girar 12s linear infinite; }
+  #aurora .bolha { position: absolute; width: 75vmax; height: 75vmax; border-radius: 50%; mix-blend-mode: screen; will-change: transform; }
+  #aurora .b1 { left: -25vmax; top: -25vmax; background: radial-gradient(circle, rgba(0,255,214,.50), transparent 62%); animation: vagar1 17s ease-in-out infinite alternate; }
+  #aurora .b2 { right: -28vmax; bottom: -28vmax; background: radial-gradient(circle, rgba(255,0,170,.45), transparent 62%); animation: vagar2 23s ease-in-out infinite alternate; }
+  #aurora .b3 { left: 30%; top: 60%; background: radial-gradient(circle, rgba(80,90,255,.40), transparent 62%); animation: vagar3 29s ease-in-out infinite alternate; }
+  #aurora .veu { position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(0,0,0,.30) 0%, rgba(0,0,0,.55) 55%, rgba(0,0,0,.82) 100%); }
+  @keyframes girar { from { transform: scale(3.4) rotate(0deg); } to { transform: scale(3.4) rotate(360deg); } }
+  @keyframes vagar1 { to { transform: translate(45vmax, 30vmax) scale(1.25); } }
+  @keyframes vagar2 { to { transform: translate(-50vmax, -28vmax) scale(.85); } }
+  @keyframes vagar3 { to { transform: translate(-35vmax, -55vmax) scale(1.15); } }
+  /* Aurora: a versao calma, lenta e suave */
+  body[data-fundo="aurora"] #aurora .roda { animation-duration: 48s; opacity: .55; filter: blur(24px) saturate(.9); }
+  body[data-fundo="aurora"] #aurora .bolha { opacity: .65; animation-duration: 40s; }
+  body[data-fundo="video"] #aurora { display: none; }
+  /* a capa desfocada do proprio video vira so um tempero de cor por cima do fundo vivo */
+  body[data-fundo="rgb"] .fundo { opacity: .28; }
+  body[data-fundo="aurora"] .fundo { opacity: .4; }
+  /* o brilho RGB em volta do video que esta tocando, igual setup gamer */
+  @keyframes brilho {
+    0%   { box-shadow: 0 0 36px 3px rgba(255,0,64,.60); }
+    17%  { box-shadow: 0 0 36px 3px rgba(255,138,0,.60); }
+    33%  { box-shadow: 0 0 36px 3px rgba(255,229,0,.55); }
+    50%  { box-shadow: 0 0 36px 3px rgba(25,255,122,.55); }
+    67%  { box-shadow: 0 0 36px 3px rgba(0,225,255,.60); }
+    83%  { box-shadow: 0 0 36px 3px rgba(196,0,255,.60); }
+    100% { box-shadow: 0 0 36px 3px rgba(255,0,64,.60); }
+  }
+  body[data-fundo="rgb"] .card.tocando .palco { animation: brilho 8s linear infinite; }
+  body[data-fundo="aurora"] .card.tocando .palco { animation: brilho 24s linear infinite; }
+  .card.audio .palco, .card.carta .palco { animation: none !important; }
   #feed::-webkit-scrollbar { display: none; }
 
   .card { height: 100dvh; scroll-snap-align: start; scroll-snap-stop: always; position: relative; overflow: hidden;
@@ -191,6 +228,7 @@
   <button class="chip" id="pausa">⏸</button>
   <button class="chip" id="som">🔇</button>
   <button class="chip" id="tela-cheia">⛶</button>
+  <button class="chip" id="fundo-modo">🌈</button>
   <button class="chip" id="recarregar">↻</button>
   <button class="chip" id="abrir-status">⚙</button>
 </div>
@@ -198,6 +236,7 @@
 <div id="icone-play"></div>
 <button id="novas"></button>
 <div id="aviso"><div class="girando"></div><div>Buscando as novidades...</div></div>
+<div id="aurora"><div class="roda"></div><div class="bolha b1"></div><div class="bolha b2"></div><div class="bolha b3"></div><div class="veu"></div></div>
 <div id="feed"></div>
 <div id="progresso"></div>
 <div id="toast"></div>
@@ -672,6 +711,7 @@ function ativar(card) {
   if (ativo === card) return;
   desativar(ativo);
   ativo = card;
+  card.classList.add('tocando');
   const f = filaAtual();
   f.indice = +card.dataset.pos;
   estado.vistos[card.dataset.id] = Date.now();
@@ -741,6 +781,7 @@ function tetoLive() { return !ABAS_CULTURA.includes(modo); }
 function desativar(card) {
   clearTimeout(timerLive); timerLive = null;
   if (!card) return;
+  card.classList.remove('tocando');
   clearInterval(card._vigia);
   if (card._player) { try { card._player.destroy(); } catch {} card._player = null; }
   card.querySelectorAll('.palco iframe, .palco > div:not(.ondas)').forEach(n => n.remove());
@@ -1271,6 +1312,19 @@ addEventListener('resize', () => {
 });
 
 modo = estado.modo;
+// 🌈 tres fundos: RGB (vivo, gamer), Aurora (calmo) e so a capa do video. O botao 🌈 troca entre eles.
+const FUNDOS = ['rgb', 'aurora', 'video'];
+const NOME_FUNDO = { rgb: '🌈 Fundo RGB', aurora: '🌌 Fundo Aurora', video: '🎞 Fundo do próprio vídeo' };
+let timerAvisoFundo;
+function aplicarFundo() { document.body.dataset.fundo = FUNDOS.includes(estado.fundo) ? estado.fundo : 'rgb'; }
+document.getElementById('fundo-modo').onclick = () => {
+  const i = FUNDOS.indexOf(document.body.dataset.fundo);
+  estado.fundo = FUNDOS[(i + 1) % FUNDOS.length]; salvar(); aplicarFundo();
+  if (coletando) return;
+  mostrarProgresso(NOME_FUNDO[estado.fundo]);
+  clearTimeout(timerAvisoFundo); timerAvisoFundo = setTimeout(() => { if (!coletando) mostrarProgresso(''); }, 1800);
+};
+aplicarFundo();
 atualizarBotaoSom();
 iniciar();
 </script>
