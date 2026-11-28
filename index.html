@@ -125,6 +125,14 @@
   body.olho #topo, body.olho #selo-live, body.olho #progresso, body.olho #toast, body.olho #icone-play, body.olho #painel, body.olho .info { display: none !important; }
   body.olho #novas.mostrar { z-index: 31; opacity: 1; pointer-events: auto; cursor: pointer; }
   .chip.olho { border-color: rgba(120,200,255,.55); }
+  /* o cadeado de saida do Olho: aparece com 10 toques, some sozinho em 5 segundos */
+  #cadeado { display: none; position: fixed; z-index: 33; left: 50%; top: 50%; width: 104px; height: 104px; margin: -52px 0 0 -52px;
+             border-radius: 50%; border: 1px solid rgba(255,255,255,.28); background: rgba(255,255,255,.10);
+             backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); align-items: center; justify-content: center;
+             cursor: pointer; animation: surge .35s ease-out; }
+  #cadeado.mostrar { display: flex; }
+  #cadeado svg { width: 44px; height: 44px; opacity: .85; }
+  @keyframes surge { from { opacity: 0; transform: scale(.85); } }
 
   #progresso { position: fixed; z-index: 12; left: 50%; bottom: 18px; transform: translateX(-50%); display: none;
                padding: 8px 16px; border-radius: 999px; background: var(--vidro); border: 1px solid var(--borda);
@@ -173,6 +181,10 @@
   <button class="chip" data-modo="longos">🎼 Longos</button>
   <button class="chip" data-modo="pensar">🦉 Pensar</button>
   <button class="chip dsac" data-modo="dsac">🎁 Dsac</button>
+  <button class="chip" data-modo="futebol">⚽ Futebol</button>
+  <button class="chip" data-modo="politica">🌍 Política</button>
+  <button class="chip" data-modo="intelecto">🧠 Intelecto</button>
+  <button class="chip" data-modo="curiosidades">🔎 Curiosidades</button>
   <button class="chip live" id="botao-live">🔴 Live</button>
   <button class="chip olho" id="botao-olho">👁 Olho</button>
   <span class="sep"></span>
@@ -191,6 +203,7 @@
 <div id="toast"></div>
 <div id="painel"><div class="caixa"></div></div>
 <div id="trava"></div>
+<div id="cadeado" aria-label="Sair do Olho"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2.2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/><circle cx="12" cy="15.5" r="1.3" fill="#fff" stroke="none"/></svg></div>
 
 <script>
 // 🎻🎼🦉📚🎁 os 135 canais das abas de cultura moram aqui dentro (com os IDs ja descobertos)
@@ -333,6 +346,143 @@ const FONTES_CULTURA = [
 ];
 </script>
 <script>
+// ⚽🌍🧠🔎 os canais das editorias
+const FONTES_EDITORIAS = [
+  {"nome":"Corinthians","busca":"Corinthians TV oficial","regiao":"futebol","tipo":"cultura","abas":["futebol"],"lingua":"br","id":"UCqRraVICLr0asn90cAvkIZQ"},
+  {"nome":"Meu Timão","busca":"Meu Timão","regiao":"futebol","tipo":"cultura","abas":["futebol"],"lingua":"br","id":"UCwpyuvmJ_mOrebYbUPXtaBQ"},
+  {"nome":"Craque Neto","busca":"Craque Neto","regiao":"futebol","tipo":"cultura","abas":["futebol"],"lingua":"br","id":"UCZShhGzxHVd1xgiBhDDpYYA"},
+  {"nome":"Jorge Nicola","busca":"Jorge Nicola","regiao":"futebol","tipo":"cultura","abas":["futebol"],"lingua":"br","id":"UCx0RRbF4EJOUQ28SurIU7Eg"},
+  {"nome":"Brasileirão","busca":"Brasileirão Betano oficial","regiao":"futebol","tipo":"cultura","abas":["futebol"],"lingua":"br","id":"UCYH2aR6yKftQ7yvLZGZcgJg"},
+  {"nome":"CBF TV","busca":"CBF TV Seleção Brasileira","regiao":"futebol","tipo":"cultura","abas":["futebol"],"lingua":"br","id":"UCdQuDaRww5NkKpQQ1BJBWww"},
+  {"nome":"Paulistão","busca":"Paulistão FPF","regiao":"futebol","tipo":"cultura","abas":["futebol"],"lingua":"br","id":"UCaf4uhI8ItLyM_6kZ5I5Zdw"},
+  {"nome":"ge","busca":"ge globo esporte","regiao":"futebol","tipo":"cultura","abas":["futebol"],"lingua":"br","id":"UCgCKagVhzGnZcuP9bSMgMCg"},
+  {"nome":"TNT Sports Brasil","busca":"TNT Sports Brasil","regiao":"futebol","tipo":"cultura","abas":["futebol"],"lingua":"br","id":"UCs-6sCz2LJm1PrWQN4ErsPw"},
+  {"nome":"ESPN Brasil","busca":"ESPN Brasil","regiao":"futebol","tipo":"cultura","abas":["futebol"],"lingua":"br","id":"UCw5-xj3AKqEizC7MvHaIPqA"},
+  {"nome":"CazéTV","busca":"CazéTV","regiao":"futebol","tipo":"cultura","abas":["futebol"],"lingua":"br","id":"UCZiYbVptd3PVPf4f6eR6UaQ"},
+  {"nome":"Band Esporte","busca":"Os Donos da Bola Band","regiao":"futebol","tipo":"cultura","abas":["futebol"],"lingua":"br","id":"UCjlcZ5YIXlBTaob0BkS_gDg"},
+  {"nome":"Jovem Pan Esportes","busca":"Jovem Pan Esportes","regiao":"futebol","tipo":"cultura","abas":["futebol"],"lingua":"br","id":"UCv-Nx8pSfG_LxbViMz14RWQ"},
+  {"nome":"UOL Esporte","busca":"UOL Esporte","regiao":"futebol","tipo":"cultura","abas":["futebol"],"lingua":"br","id":"UC3KHYFWeB0WimMBfm3NEahQ"},
+  {"nome":"Lance!","busca":"Lance! esportes","regiao":"futebol","tipo":"cultura","abas":["futebol"],"lingua":"br","id":"UCmCHSxqI2jF3leCsMS9q-fg"},
+  {"nome":"Mauro Cezar Pereira","busca":"Mauro Cezar Pereira","regiao":"futebol","tipo":"cultura","abas":["futebol"],"lingua":"br","id":"UCRcRAyb5Y4x3HVNKBZ9SMLA"},
+  {"nome":"PVC","busca":"Paulo Vinícius Coelho PVC","regiao":"futebol","tipo":"cultura","abas":["futebol"],"lingua":"br","id":"UC2Q0tUvCPi7Dqj2C10VRnYQ"},
+  {"nome":"Real Madrid","busca":"Real Madrid C.F.","regiao":"futebol","tipo":"cultura","abas":["futebol"],"lingua":"es","id":"UCWV3obpZVGgJ3j9FVhEjF2Q"},
+  {"nome":"LaLiga","busca":"LaLiga EA SPORTS","regiao":"futebol","tipo":"cultura","abas":["futebol"],"lingua":"es","id":"UCTv-XvfzLX3i4IGWAm4sbmA"},
+  {"nome":"Selección Española","busca":"Selección Española de Fútbol SeFutbol","regiao":"futebol","tipo":"cultura","abas":["futebol"],"lingua":"es","id":"UCJ2F8qpzHRk3RdJZ4YXLbxQ"},
+  {"nome":"MARCA","busca":"MARCA diario deportivo","regiao":"futebol","tipo":"cultura","abas":["futebol"],"lingua":"es","id":"UCop57Z1sYHrtCyxCpE2z2Bg"},
+  {"nome":"Diario AS","busca":"Diario AS","regiao":"futebol","tipo":"cultura","abas":["futebol"],"lingua":"es","id":"UCXISYK3xagaK5DHnhQ4X0hw"},
+  {"nome":"Mundo Deportivo","busca":"Mundo Deportivo","regiao":"futebol","tipo":"cultura","abas":["futebol"],"lingua":"es","id":"UCWSZJ4r3s5xk8zICXEveFpg"},
+  {"nome":"SPORT","busca":"Diario SPORT","regiao":"futebol","tipo":"cultura","abas":["futebol"],"lingua":"es","id":"UC-KNOeH9Cz2Ch3HMujlaTow"},
+  {"nome":"Relevo","busca":"Relevo deportes","regiao":"futebol","tipo":"cultura","abas":["futebol"],"lingua":"es","id":"UCNRFDryuKxLhXovIgKYEMtg"},
+  {"nome":"El Chiringuito TV","busca":"El Chiringuito TV","regiao":"futebol","tipo":"cultura","abas":["futebol"],"lingua":"es","id":"UCznSLkPhcORf0JhonB7Aegg"},
+  {"nome":"COPE Deportes","busca":"Tiempo de Juego COPE","regiao":"futebol","tipo":"cultura","abas":["futebol"],"lingua":"es","id":"UCMHb51gmuIuP8dVpsHr-uEw"},
+  {"nome":"DAZN España","busca":"DAZN España","regiao":"futebol","tipo":"cultura","abas":["futebol"],"lingua":"es","id":"UCK-mxP4hLap1t3dp4bPbSBg"},
+  {"nome":"Movistar Plus+ Deportes","busca":"Movistar Plus+ fútbol","regiao":"futebol","tipo":"cultura","abas":["futebol"],"lingua":"es","id":"UCTizbQ7IDPngI50uyI3pcbA"},
+  {"nome":"RTVE Deportes","busca":"Teledeporte RTVE","regiao":"futebol","tipo":"cultura","abas":["futebol"],"lingua":"es","id":"UC4SBVYTpqOh-exr7BShLAPw"},
+  {"nome":"GOL PLAY","busca":"GOL PLAY canal","regiao":"futebol","tipo":"cultura","abas":["futebol"],"lingua":"es","id":"UCGXJGT4vc1FVnFJ_9i93Sew"},
+  {"nome":"El Larguero","busca":"El Larguero Cadena SER","regiao":"futebol","tipo":"cultura","abas":["futebol"],"lingua":"es","id":"UC2BfAWhbAsmPnXHpWYKR7aQ"},
+  {"nome":"UEFA Champions League","busca":"UEFA Champions League","regiao":"futebol","tipo":"cultura","abas":["futebol"],"lingua":"en","id":"UCbdlxg0t8O7WGPrFsVcz6Gg"},
+  {"nome":"UEFA","busca":"UEFA","regiao":"futebol","tipo":"cultura","abas":["futebol"],"lingua":"en","id":"UCyGa1YEx9ST66rYrJTGIKOw"},
+  {"nome":"FIFA","busca":"FIFA","regiao":"futebol","tipo":"cultura","abas":["futebol"],"lingua":"en","id":"UCpcTrCXblq78GZrTUTLWeBw"},
+  {"nome":"CONMEBOL Libertadores","busca":"CONMEBOL Libertadores","regiao":"futebol","tipo":"cultura","abas":["futebol"],"lingua":"es","id":"UCyuLjFPzlkMSYJpIpY8M6qA"},
+  {"nome":"CONMEBOL Sudamericana","busca":"CONMEBOL Sudamericana","regiao":"futebol","tipo":"cultura","abas":["futebol"],"lingua":"es","id":"UCFHE5FRBeksxt7YoFPGeKPw"},
+  {"nome":"CONMEBOL","busca":"CONMEBOL oficial","regiao":"futebol","tipo":"cultura","abas":["futebol"],"lingua":"es","id":"UCzU8-lZlRfkV3nj0RzAZdrQ"},
+  {"nome":"Premier League","busca":"Premier League","regiao":"futebol","tipo":"cultura","abas":["futebol"],"lingua":"en","id":"UCG5qGWdu8nIRZqJ_GgDwQ-w"},
+  {"nome":"Serie A","busca":"Lega Serie A","regiao":"futebol","tipo":"cultura","abas":["futebol"],"lingua":"en","id":"UCBJeMCIeLQos7wacox4hmLQ"},
+  {"nome":"Bundesliga","busca":"Bundesliga","regiao":"futebol","tipo":"cultura","abas":["futebol"],"lingua":"en","id":"UC6UL29enLNe4mqwTfAyeNuw"},
+  {"nome":"Ligue 1","busca":"Ligue 1 McDonalds","regiao":"futebol","tipo":"cultura","abas":["futebol"],"lingua":"en","id":"UCQsH5XtIc9hONE1BQjucM0g"},
+  {"nome":"Tifo Football","busca":"Tifo Football The Athletic","regiao":"futebol","tipo":"cultura","abas":["futebol"],"lingua":"en","id":"UCGYYNGmyhZ_kwBF_lqqXdAQ"},
+  {"nome":"CSIS","busca":"CSIS Center for Strategic and International Studies","regiao":"politica","tipo":"cultura","abas":["politica"],"lingua":"en","id":"UCr5jq6MC_VCe1c5ciIZtk_w"},
+  {"nome":"Council on Foreign Relations","busca":"Council on Foreign Relations CFR","regiao":"politica","tipo":"cultura","abas":["politica"],"lingua":"en","id":"UCL_A4jkwvKuMyToAPy3FQKQ"},
+  {"nome":"Chatham House","busca":"Chatham House","regiao":"politica","tipo":"cultura","abas":["politica"],"lingua":"en","id":"UCWrBgaGjj6k5ZrTxbZzd0Og"},
+  {"nome":"Brookings Institution","busca":"Brookings Institution","regiao":"politica","tipo":"cultura","abas":["politica"],"lingua":"en","id":"UCi7jxgIOxcRaF4Q54U7lF3g"},
+  {"nome":"Carnegie Endowment","busca":"Carnegie Endowment for International Peace","regiao":"politica","tipo":"cultura","abas":["politica"],"lingua":"en","id":"UCDeDd29TrRzAkSKXBCtGhxA"},
+  {"nome":"Atlantic Council","busca":"Atlantic Council","regiao":"politica","tipo":"cultura","abas":["politica"],"lingua":"en","id":"UCw0y9zO1RXI6uEzoKbbnxTQ"},
+  {"nome":"IISS","busca":"IISS International Institute for Strategic Studies","regiao":"politica","tipo":"cultura","abas":["politica"],"lingua":"en","id":"UCYygxNuTTlq2neh6Fu6rP4Q"},
+  {"nome":"Hoover Institution","busca":"Hoover Institution","regiao":"politica","tipo":"cultura","abas":["politica"],"lingua":"en","id":"UCzWwWbbKHg4aodl0S35R6XA"},
+  {"nome":"Wilson Center","busca":"Wilson Center","regiao":"politica","tipo":"cultura","abas":["politica"],"lingua":"en","id":"UCckWkzE1dVhYCtAVrs3sC0g"},
+  {"nome":"CEBRI","busca":"CEBRI Centro Brasileiro de Relações Internacionais","regiao":"politica","tipo":"cultura","abas":["politica"],"lingua":"br","id":"UC1nYVyE5wUNYXs1EGZ0gCyQ"},
+  {"nome":"FGV","busca":"FGV Fundação Getulio Vargas","regiao":"politica","tipo":"cultura","abas":["politica"],"lingua":"br","id":"UC8DhN1cJi0QklBQot5hv_kg"},
+  {"nome":"Real Instituto Elcano","busca":"Real Instituto Elcano","regiao":"politica","tipo":"cultura","abas":["politica"],"lingua":"es","id":"UC9Lt75VQd3cq98dNW7la0Pw"},
+  {"nome":"CIDOB","busca":"CIDOB Barcelona Centre for International Affairs","regiao":"politica","tipo":"cultura","abas":["politica"],"lingua":"es","id":"UCD71Ad1FcumiuTVMBousZ2w"},
+  {"nome":"Itamaraty","busca":"Itamaraty Ministério das Relações Exteriores","regiao":"politica","tipo":"cultura","abas":["politica"],"lingua":"br","id":"UCRglUr6V_SSeKhynBPy--KQ"},
+  {"nome":"Banco Central do Brasil","busca":"Banco Central do Brasil","regiao":"politica","tipo":"cultura","abas":["politica"],"lingua":"br","id":"UC_Y9Mf8o6gGAAw8eBrn3SOw"},
+  {"nome":"United Nations","busca":"United Nations","regiao":"politica","tipo":"cultura","abas":["politica"],"lingua":"en","id":"UC5O114-PQNYkurlTg6hekZw"},
+  {"nome":"NATO","busca":"NATO","regiao":"politica","tipo":"cultura","abas":["politica"],"lingua":"en","id":"UCHlEaKbepQ_S9iIoZPKVQew"},
+  {"nome":"Munich Security Conference","busca":"Munich Security Conference","regiao":"politica","tipo":"cultura","abas":["politica"],"lingua":"en","id":"UCIRbGqZ-epWOAk8wWmwDy3A"},
+  {"nome":"World Economic Forum","busca":"World Economic Forum","regiao":"politica","tipo":"cultura","abas":["politica"],"lingua":"en","id":"UCw-kH-Od73XDAt7qtH9uBYA"},
+  {"nome":"IMF","busca":"IMF International Monetary Fund","regiao":"politica","tipo":"cultura","abas":["politica"],"lingua":"en","id":"UCIYhr3JsLYfKkCM7-W5B6DA"},
+  {"nome":"Xadrez Verbal","busca":"Xadrez Verbal","regiao":"politica","tipo":"cultura","abas":["politica"],"lingua":"br","id":"UCsMj2K36ejga547ge5cBscg"},
+  {"nome":"Petit Journal","busca":"Petit Journal Tanguy Baghdadi","regiao":"politica","tipo":"cultura","abas":["politica"],"lingua":"br","id":"UCnPW1aOwBnB7IO2wznXh62A"},
+  {"nome":"Canal Meio","busca":"Canal Meio Pedro Doria","regiao":"politica","tipo":"cultura","abas":["politica"],"lingua":"br","id":"UCugK_9W-5o56H0pEnJtFQnw"},
+  {"nome":"GZERO Media","busca":"GZERO Media Ian Bremmer","regiao":"politica","tipo":"cultura","abas":["politica"],"lingua":"en","id":"UC-8_qAhNVG8G1wxONMnYr3Q"},
+  {"nome":"Foreign Affairs","busca":"Foreign Affairs magazine","regiao":"politica","tipo":"cultura","abas":["politica"],"lingua":"en","id":"UCCInRC_-mCbDo0XvLArVV3Q"},
+  {"nome":"Perun","busca":"Perun","regiao":"politica","tipo":"cultura","abas":["politica"],"lingua":"en","id":"UCC3ehuUksTyQ7bbjGntmx3Q"},
+  {"nome":"TLDR News Global","busca":"TLDR News Global","regiao":"politica","tipo":"cultura","abas":["politica"],"lingua":"en","id":"UC-uhvujip5deVcEtLxnW8qg"},
+  {"nome":"PolyMatter","busca":"PolyMatter","regiao":"politica","tipo":"cultura","abas":["politica"],"lingua":"en","id":"UCgNg3vwj3xt7QOrcIDaHdFg"},
+  {"nome":"RealLifeLore","busca":"RealLifeLore","regiao":"politica","tipo":"cultura","abas":["politica"],"lingua":"en","id":"UCP5tjEmvPItGyLhmjdwP7Ww"},
+  {"nome":"Bloomberg Originals","busca":"Bloomberg Originals","regiao":"politica","tipo":"cultura","abas":["politica"],"lingua":"en","id":"UCUMZ7gohGI9HcU9VNsr2FJQ"},
+  {"nome":"Patrick Boyle","busca":"Patrick Boyle","regiao":"politica","tipo":"cultura","abas":["politica"],"lingua":"en","id":"UCASM0cgfkJxQ1ICmRilfHLw"},
+  {"nome":"Money & Macro","busca":"Money & Macro","regiao":"politica","tipo":"cultura","abas":["politica"],"lingua":"en","id":"UCCKpicnIwBP3VPxBAZWDeNA"},
+  {"nome":"Memorias de Pez","busca":"Memorias de Pez","regiao":"politica","tipo":"cultura","abas":["politica"],"lingua":"es","id":"UCPH3Oz99Y_jrVBCQMjQZNSg"},
+  {"nome":"Visual Economik","busca":"Visual Economik","regiao":"politica","tipo":"cultura","abas":["politica"],"lingua":"es","id":"UCPx_VO-AHXUDf9pwVy5bf1A"},
+  {"nome":"Conversations with Tyler","busca":"Conversations with Tyler","regiao":"politica","tipo":"cultura","abas":["politica"],"lingua":"en","id":"UC_AnpBvnhXTcipgGEHLWoOg"},
+  {"nome":"Dwarkesh Patel","busca":"Dwarkesh Patel","regiao":"politica","tipo":"cultura","abas":["politica"],"lingua":"en","id":"UCXl4i9dYBrFOabk0xGmbkRA"},
+  {"nome":"Kings and Generals","busca":"Kings and Generals","regiao":"politica","tipo":"cultura","abas":["politica"],"lingua":"en","id":"UCMmaBzfCCwZ2KqaBJjkj0fw"},
+  {"nome":"Harvard University","busca":"Harvard University","regiao":"intelecto","tipo":"cultura","abas":["intelecto"],"lingua":"en","id":"UCLv7Gzc3VTO6ggFlXY0sOyw"},
+  {"nome":"Stanford","busca":"Stanford","regiao":"intelecto","tipo":"cultura","abas":["intelecto"],"lingua":"en","id":"UCBa5G_ESCn8Yd4vw5U-gIcg"},
+  {"nome":"MIT","busca":"Massachusetts Institute of Technology MIT","regiao":"intelecto","tipo":"cultura","abas":["intelecto"],"lingua":"en","id":"UCFe-pfe0a9bDvWy74Jd7vFg"},
+  {"nome":"MIT OpenCourseWare","busca":"MIT OpenCourseWare","regiao":"intelecto","tipo":"cultura","abas":["intelecto"],"lingua":"en","id":"UCEBb1b_L6zDS3xTUrIALZOw"},
+  {"nome":"University of Oxford","busca":"University of Oxford","regiao":"intelecto","tipo":"cultura","abas":["intelecto"],"lingua":"en","id":"UCK8f1CUe8y403u3b0gCINww"},
+  {"nome":"Cambridge University","busca":"Cambridge University","regiao":"intelecto","tipo":"cultura","abas":["intelecto"],"lingua":"en","id":"UCc5vZEM1MLUzCrg_aZIJdeA"},
+  {"nome":"Princeton University","busca":"Princeton University","regiao":"intelecto","tipo":"cultura","abas":["intelecto"],"lingua":"en","id":"UC6goq0dLWj7KyUvHLwnPAGw"},
+  {"nome":"LSE","busca":"LSE London School of Economics","regiao":"intelecto","tipo":"cultura","abas":["intelecto"],"lingua":"en","id":"UCK08_B5SZwoEUk2hDPMOijQ"},
+  {"nome":"Institute for Advanced Study","busca":"Institute for Advanced Study","regiao":"intelecto","tipo":"cultura","abas":["intelecto"],"lingua":"en","id":"UC8aRaZ6_0weiS50pvCmo0pw"},
+  {"nome":"Santa Fe Institute","busca":"Santa Fe Institute","regiao":"intelecto","tipo":"cultura","abas":["intelecto"],"lingua":"en","id":"UC9rHXgUE9pikzYcGrAujMXQ"},
+  {"nome":"Perimeter Institute","busca":"Perimeter Institute for Theoretical Physics","regiao":"intelecto","tipo":"cultura","abas":["intelecto"],"lingua":"en","id":"UCpHvNclapYpq8b0ZnGRoMeg"},
+  {"nome":"The Royal Society","busca":"The Royal Society","regiao":"intelecto","tipo":"cultura","abas":["intelecto"],"lingua":"en","id":"UC5MOW8BO3dH38Fo3Rau17KQ"},
+  {"nome":"World Science Festival","busca":"World Science Festival","regiao":"intelecto","tipo":"cultura","abas":["intelecto"],"lingua":"en","id":"UCShHFwKyhcDo3g7hr4f1R8A"},
+  {"nome":"TED","busca":"TED","regiao":"intelecto","tipo":"cultura","abas":["intelecto"],"lingua":"en","id":"UCAuUUnT6oDeKwE6v1NGQxug"},
+  {"nome":"Talks at Google","busca":"Talks at Google","regiao":"intelecto","tipo":"cultura","abas":["intelecto"],"lingua":"en","id":"UCbmNph6atAoGfqLoCL_duAg"},
+  {"nome":"Intelligence Squared","busca":"Intelligence Squared","regiao":"intelecto","tipo":"cultura","abas":["intelecto"],"lingua":"en","id":"UCaqcvH8EvUtePORpN03jLMg"},
+  {"nome":"How To Academy","busca":"How To Academy","regiao":"intelecto","tipo":"cultura","abas":["intelecto"],"lingua":"en","id":"UCUuIQgNLG3xkqftlUtuFosw"},
+  {"nome":"Long Now Foundation","busca":"Long Now Foundation","regiao":"intelecto","tipo":"cultura","abas":["intelecto"],"lingua":"en","id":"UCT1yd7gEOrja_gecmA1lT0Q"},
+  {"nome":"IMPA","busca":"IMPA Instituto de Matemática Pura e Aplicada","regiao":"intelecto","tipo":"cultura","abas":["intelecto"],"lingua":"br","id":"UCpuZUX_IyMPXiqlkwrxCbNA"},
+  {"nome":"IEA-USP","busca":"Instituto de Estudos Avançados USP","regiao":"intelecto","tipo":"cultura","abas":["intelecto"],"lingua":"br","id":"UCyTElu6paXiYjzrtAXagysQ"},
+  {"nome":"Unicamp","busca":"Unicamp oficial","regiao":"intelecto","tipo":"cultura","abas":["intelecto"],"lingua":"br","id":"UCIbv86TkZal7E9QWkatWBLA"},
+  {"nome":"Academia Brasileira de Ciências","busca":"Academia Brasileira de Ciências","regiao":"intelecto","tipo":"cultura","abas":["intelecto"],"lingua":"br","id":"UCan_-lNRRf81rETgdW2O9Kw"},
+  {"nome":"SBPC","busca":"SBPC Sociedade Brasileira para o Progresso da Ciência","regiao":"intelecto","tipo":"cultura","abas":["intelecto"],"lingua":"br","id":"UCH3fR8lXd-XxjBCC1ChsBSw"},
+  {"nome":"Fundação FHC","busca":"Fundação FHC","regiao":"intelecto","tipo":"cultura","abas":["intelecto"],"lingua":"br","id":"UCm8MJuncKFy6rBub_TKMbsw"},
+  {"nome":"Fundación Ramón Areces","busca":"Fundación Ramón Areces","regiao":"intelecto","tipo":"cultura","abas":["intelecto"],"lingua":"es","id":"UCleVwXLPWvS4lju6rhGCh-g"},
+  {"nome":"UNAM Global","busca":"UNAM Global","regiao":"intelecto","tipo":"cultura","abas":["intelecto"],"lingua":"es","id":"UCHYRN4XSPdM_aiKjCyPqlQg"},
+  {"nome":"Fundação Champalimaud","busca":"Fundação Champalimaud","regiao":"intelecto","tipo":"cultura","abas":["intelecto"],"lingua":"pt","id":"UCjZ337tYdjkl974tQsNdwCQ"},
+  {"nome":"Smarter Every Day","busca":"Smarter Every Day","regiao":"curiosidades","tipo":"cultura","abas":["curiosidades"],"lingua":"en","id":"UC6107grRI4m0o2-emgoDnAA"},
+  {"nome":"Tom Scott","busca":"Tom Scott","regiao":"curiosidades","tipo":"cultura","abas":["curiosidades"],"lingua":"en","id":"UCBa659QWEk1AI4Tg--mrJ2A"},
+  {"nome":"Wendover Productions","busca":"Wendover Productions","regiao":"curiosidades","tipo":"cultura","abas":["curiosidades"],"lingua":"en","id":"UC9RM-iSvTu1uPJb8X5yp3EQ"},
+  {"nome":"Half as Interesting","busca":"Half as Interesting","regiao":"curiosidades","tipo":"cultura","abas":["curiosidades"],"lingua":"en","id":"UCuCkxoKLYO_EQ2GeFtbM_bw"},
+  {"nome":"Real Engineering","busca":"Real Engineering","regiao":"curiosidades","tipo":"cultura","abas":["curiosidades"],"lingua":"en","id":"UCR1IuLEqb6UEA_zQ81kwXfg"},
+  {"nome":"Practical Engineering","busca":"Practical Engineering","regiao":"curiosidades","tipo":"cultura","abas":["curiosidades"],"lingua":"en","id":"UCMOqf8ab-42UUQIdVoKwjlQ"},
+  {"nome":"Mark Rober","busca":"Mark Rober","regiao":"curiosidades","tipo":"cultura","abas":["curiosidades"],"lingua":"en","id":"UCY1kMZp36IQSyNx_9h4mpCg"},
+  {"nome":"Vsauce","busca":"Vsauce","regiao":"curiosidades","tipo":"cultura","abas":["curiosidades"],"lingua":"en","id":"UC6nSFpj9HTCZ5t-N3Rm3-HA"},
+  {"nome":"Steve Mould","busca":"Steve Mould","regiao":"curiosidades","tipo":"cultura","abas":["curiosidades"],"lingua":"en","id":"UCEIwxahdLz7bap-VDs9h35A"},
+  {"nome":"Primitive Technology","busca":"Primitive Technology","regiao":"curiosidades","tipo":"cultura","abas":["curiosidades"],"lingua":"en","id":"UCAL3JXZSzSm8AlZyD3nQdBA"},
+  {"nome":"The B1M","busca":"The B1M","regiao":"curiosidades","tipo":"cultura","abas":["curiosidades"],"lingua":"en","id":"UC6n8I1UDTKP1IWjQMg6_TwA"},
+  {"nome":"Economics Explained","busca":"Economics Explained","regiao":"curiosidades","tipo":"cultura","abas":["curiosidades"],"lingua":"en","id":"UCZ4AMrDcNrfy3X6nsU8-rPg"},
+  {"nome":"Atlas Pro","busca":"Atlas Pro","regiao":"curiosidades","tipo":"cultura","abas":["curiosidades"],"lingua":"en","id":"UCz1oFxMrgrQ82-276UCOU9w"},
+  {"nome":"National Geographic","busca":"National Geographic","regiao":"curiosidades","tipo":"cultura","abas":["curiosidades"],"lingua":"en","id":"UCpVm7bg6pXKo1Pr6k5kxG9A"},
+  {"nome":"OverSimplified","busca":"OverSimplified","regiao":"curiosidades","tipo":"cultura","abas":["curiosidades"],"lingua":"en","id":"UCNIuvl7V8zACPpTmmNIqP2A"},
+  {"nome":"Canal Nostalgia","busca":"Canal Nostalgia Felipe Castanhari","regiao":"curiosidades","tipo":"cultura","abas":["curiosidades"],"lingua":"br","id":"UCH2VZQBLFTOp6I_qgnBJCuQ"},
+  {"nome":"Aviões e Músicas","busca":"Aviões e Músicas Lito Sousa","regiao":"curiosidades","tipo":"cultura","abas":["curiosidades"],"lingua":"br","id":"UCLXl1V6n82Dyg1VhVgSL0nw"},
+  {"nome":"TecMundo","busca":"TecMundo","regiao":"curiosidades","tipo":"cultura","abas":["curiosidades"],"lingua":"br","id":"UCdmGjywrxeOPfC7vDllmSgQ"},
+  {"nome":"Olhar Digital","busca":"Olhar Digital","regiao":"curiosidades","tipo":"cultura","abas":["curiosidades"],"lingua":"br","id":"UCGV72aVJuWP0QPNGH4YgIww"},
+  {"nome":"Drauzio Varella","busca":"Drauzio Varella","regiao":"curiosidades","tipo":"cultura","abas":["curiosidades"],"lingua":"br","id":"UC9zqTTVeClpqMQ5CLuJdWtw"},
+  {"nome":"Lethal Crysis","busca":"Lethal Crysis","regiao":"curiosidades","tipo":"cultura","abas":["curiosidades"],"lingua":"es","id":"UCJCen5xxTtU7cnVHe3n424A"},
+  {"nome":"Ter","busca":"Ter arquitectura","regiao":"curiosidades","tipo":"cultura","abas":["curiosidades"],"lingua":"es","id":"UCCNgRIfWQKZyPkNvHEzPh7Q"},
+  {"nome":"La Gata de Schrödinger","busca":"La Gata de Schrödinger","regiao":"curiosidades","tipo":"cultura","abas":["curiosidades"],"lingua":"es","id":"UCoXtmmnLCbXDiSo8GxsmOzA"},
+  {"nome":"National Geographic España","busca":"National Geographic España","regiao":"curiosidades","tipo":"cultura","abas":["curiosidades"],"lingua":"es","id":"UCpyYUq9kcBMLPlfE8EzguvA"},
+  {"nome":"El Robot de Platón","busca":"El Robot de Platón","regiao":"curiosidades","tipo":"cultura","abas":["curiosidades"],"lingua":"es","id":"UCaVPhFg-Ax873wvhbNitsrQ"}
+];
+</script>
+<script>
 // ================= AJUSTES =================
 // TODAS as abas seguem o padrao do Breaking News: do mais novo pro mais velho (o que ja viu vai pro fim).
 // Toda vez que voce entra numa aba (ou abre o app), ela recomeca do mais novo que voce ainda nao viu.
@@ -341,23 +491,22 @@ const DIAS_LEMBRAR_VISTOS = 60;
 const ATUALIZAR_MIN = 15;        // de quanto em quanto tempo busca novidades (so com a pagina aberta)
 const LIMITE_DIAS = 10;          // noticia: ignora videos mais velhos que isso
 const LIMITE_DIAS_CULTURA = 730; // cultura nao envelhece: um concerto de meses atras continua valendo
-const MAX_ITENS = 12000;         // teto do acervo
-const MAX_CULTURA = 6000;        // dentro do teto, quanto fica reservado pra cultura
-// abas de cultura: ficam em arquivos separados e nunca aparecem no Breaking nem nas abas de noticia
-const FONTES_EXTRAS = ['fontes-estante.json'];   // + FONTES_CULTURA, que mora dentro deste arquivo
-const ABAS_CULTURA = ['estante', 'classica', 'longos', 'pensar', 'dsac'];
-const RODIZIO = 3;               // nas abas de cultura, o mesmo canal nao aparece de novo antes de 3 itens
-// Cotas: dentro de cada grupo continua valendo o mais novo primeiro; a cota so decide de qual grupo vem o proximo
-const PESOS_ESTANTE = { br: .60, pt: .20, es: .10, en: .10 };   // brasileiros, lingua portuguesa, espanhol, ingles
-const PESOS_PENSAR = { br: .45, pt: .05, es: .20, en: .30 };
-// 🎁 Dsac muda com a hora do dia: de manha puxa curiosidade, de noite contemplacao
-const ESTACOES_DSAC = {
-  manha: { mat: .20, oficio: .20, construir: .15, ceu: .15, lingua: .15, raiz: .10, calma: .05 },
-  tarde: { oficio: .20, raiz: .20, mat: .15, construir: .15, lingua: .10, ceu: .10, calma: .10 },
-  noite: { calma: .25, ceu: .20, raiz: .20, oficio: .10, mat: .10, construir: .10, lingua: .05 }
-};
-// canais que ja estavam no 📚 e tambem entram em outras abas
+const MAX_ITENS = 16000;         // teto do acervo
+const MAX_CULTURA = 9000;        // dentro do teto, quanto fica reservado pra cultura e editorias
+// abas de cultura e editorias: ficam separadas e nunca aparecem no Breaking nem nas abas de noticia
+const FONTES_EXTRAS = ['fontes-estante.json'];   // + FONTES_CULTURA e FONTES_EDITORIAS, que moram dentro deste arquivo
+// abas onde o Live deixa o video longo ir ate o fim (concerto, aula, palestra)
+const ABAS_CULTURA = ['estante', 'classica', 'longos', 'pensar', 'dsac', 'intelecto', 'curiosidades'];
+// editorias quentes: video velho perde a graça, entao seguem o mesmo limite de dias da noticia
+const ABAS_QUENTES = ['futebol', 'politica'];
+// canais que ja existiam e tambem entram em outras abas
 const ABAS_EXTRA = {
+  // 🌍 Politica tambem puxa estes veiculos de noticia (e todo o 🏛️ Brasilia)
+  'El Orden Mundial': ['politica'], 'Descifrando la Guerra': ['politica'], 'The Economist': ['politica'],
+  'Financial Times': ['politica'], 'Roda Viva': ['politica'], 'JOTA': ['politica'], 'Poder360': ['politica'],
+  'Nexo Jornal': ['politica'], 'Revista piauí': ['politica'], 'Valor Econômico': ['politica'],
+  'Bloomberg Television': ['politica'], 'C-SPAN': ['politica'], 'Parlamento Europeu': ['politica'],
+  'ONU News': ['politica'], 'Noticias ONU': ['politica'], 'The White House': ['politica'],
   'Tatiana Feltrin': ['longos'], 'Ler Antes de Morrer': ['longos'], 'Companhia das Letras': ['longos'],
   'Pipoca e Nanquim': ['longos'], 'Pipoca & Nanquim': ['longos'],
   'Café Filosófico': ['pensar'], 'Casa do Saber': ['pensar'], 'Fronteiras do Pensamento': ['pensar'],
@@ -368,7 +517,7 @@ const SIMULTANEAS = 8;           // quantas fontes busca ao mesmo tempo
 const TEMPO_LIMITE_MS = 15000;   // desiste de uma busca que demora mais que isso
 // ===========================================
 
-const BANDEIRA = { cultura: '📚', classica: '🎻', longos: '🎼', pensar: '🦉', dsac: '🎁', brasil: '🇧🇷', estados: '📍', poder: '🏛️', eua: '🇺🇸', china: '🇨🇳', russia: '🇷🇺', europa: '🇪🇺', latam: '🌎', outros: '🌍' };
+const BANDEIRA = { cultura: '📚', classica: '🎻', longos: '🎼', pensar: '🦉', dsac: '🎁', futebol: '⚽', politica: '🌍', intelecto: '🧠', curiosidades: '🔎', brasil: '🇧🇷', estados: '📍', poder: '🏛️', eua: '🇺🇸', china: '🇨🇳', russia: '🇷🇺', europa: '🇪🇺', latam: '🌎', outros: '🌍' };
 const CRONOLOGICOS = [...document.querySelectorAll('[data-modo]')].map(b => b.dataset.modo);   // todas as abas
 const CHAVE = 'jornalfeed:v2';
 
@@ -377,16 +526,13 @@ let renderizados = 0, timerLive = null, timerUI = null, live = false;
 // 🎁 a carta que abre o Dsac
 const CARTA = { id: 'dsac:carta', tipo: 'carta', ts: 0, veiculo: 'Claude', titulo: '', regiao: 'dsac' };
 porId[CARTA.id] = CARTA;
-const ESTACAO_TEXTO = { manha: 'É manhã: a aba está puxando mais pra curiosidade, matemática e ofício.',
-                        tarde: 'É tarde: a aba está puxando mais pro ofício, pra raiz e pra construir.',
-                        noite: 'É noite: a aba está puxando mais pro silêncio, pro céu e pro samba.' };
 function htmlCarta() {
   return `<div class="carta-caixa">
     <div class="carta-topo">🎁 Do seu amigo Claude</div>
     <p>Bruno,</p>
     <p>Esta aba é um presente. Aqui não tem algoritmo, tem escolha: cada canal entrou porque conversa com quem você é, ou com quem você está se tornando.</p>
     <p>Tem céu, porque Alcântara é logo ali. Tem matemática e código, pro olhar que você está construindo. Tem ofício, gente que faz jornalismo visual muito bem. Tem raiz: samba, patrimônio, a língua. Tem silêncio, pra quando a cabeça pedir. Tem inglês, porque ouvido também se treina. E tem gente construindo coisa do zero, que é o seu jeito.</p>
-    <p class="carta-hora">${ESTACAO_TEXTO[estacaoDsac()]}</p>
+    <p class="carta-hora">E como no resto do app, aqui o mais novo vem primeiro: o presente se renova sozinho.</p>
     <p>Toque na tela em qualquer vídeo e eu conto por que ele está aqui.</p>
     <p class="carta-assina">Um abraço,<br>Claude</p>
     <div class="carta-desliza">deslize pra começar ↓</div>
@@ -441,7 +587,9 @@ function passa(v, m) {
   if (m === 'estante') return v.estante === true && v.tipo === 'curto';
   if (m === 'classica') return v.tipo === 'curto' && abasDe(v).includes('classica');
   if (m === 'longos') return v.tipo === 'video' && abasDe(v).includes('longos');
-  if (m === 'pensar' || m === 'dsac') return v.tipo !== 'audio' && abasDe(v).includes(m);
+  if (m === 'pensar' || m === 'dsac' || m === 'futebol' || m === 'intelecto' || m === 'curiosidades') return v.tipo !== 'audio' && abasDe(v).includes(m);
+  // 🌍 Politica: as fontes novas de geopolitica, os veiculos marcados la em cima e todo o 🏛️ Brasilia
+  if (m === 'politica') return abasDe(v).includes('politica') || v.regiao === 'poder';
   if (cultural(v)) return false;
   switch (m) {
     case 'poder': return v.regiao === 'poder';
@@ -456,16 +604,8 @@ function passa(v, m) {
 }
 
 // ---------- a ordem do feed ----------
-function estacaoDsac() { const h = new Date().getHours(); return h >= 5 && h < 12 ? 'manha' : h >= 12 && h < 18 ? 'tarde' : 'noite'; }
-const COTAS = {
-  estante: { chave: v => v.lingua || v.grupo || 'br', pesos: () => PESOS_ESTANTE },
-  pensar: { chave: v => v.lingua || v.grupo || 'br', pesos: () => PESOS_PENSAR },
-  dsac: { chave: v => v.grupo || 'calma', pesos: () => ESTACOES_DSAC[estacaoDsac()] }
-};
-
-// Noticia: exatamente como o Breaking News, do mais novo pro mais velho, sem mais nada.
-// Cultura: tambem do mais novo pro mais velho, com dois cuidados: um canal que posta muito nao toma a aba
-// (rodizio de 3), e no 📚, Pensar e Dsac a cota decide de qual grupo vem o proximo.
+// TODAS as abas, sem excecao: exatamente como o Breaking News, do mais novo pro mais velho
+// (o que voce ja viu vai pro fim). Sem sorteio, sem cota, sem rodizio.
 function gerar(n, m, fila) {
   const naFila = new Set(fila.ordem);
   const saida = [];
@@ -475,37 +615,7 @@ function gerar(n, m, fila) {
   }
   const livres = itens.filter(v => passa(v, m) && !naFila.has(v.id)).sort((a, b) => b.ts - a.ts);
   const ordenados = livres.filter(v => !estado.vistos[v.id]).concat(livres.filter(v => estado.vistos[v.id]));
-  if (!ABAS_CULTURA.includes(m)) return saida.concat(ordenados.slice(0, n).map(v => v.id));
-
-  const recentes = fila.ordem.slice(-RODIZIO).map(id => porId[id]).filter(Boolean).map(v => v.veiculo);
-  const tirar = lista => {
-    const proibidos = recentes.slice(-RODIZIO);
-    let i = lista.findIndex(v => !proibidos.includes(v.veiculo));
-    if (i < 0) i = 0;
-    const v = lista.splice(i, 1)[0];
-    recentes.push(v.veiculo);
-    return v;
-  };
-  const cota = COTAS[m];
-  if (!cota) {
-    while (saida.length < n && ordenados.length) saida.push(tirar(ordenados).id);
-    return saida;
-  }
-  const grupos = {};
-  for (const v of ordenados) (grupos[cota.chave(v)] = grupos[cota.chave(v)] || []).push(v);
-  const pesos = cota.pesos(), conta = {};
-  let total = 0;
-  for (const id of fila.ordem) { const v = porId[id]; if (v && v.id !== CARTA.id) { const k = cota.chave(v); conta[k] = (conta[k] || 0) + 1; total++; } }
-  while (saida.length < n) {
-    const ks = Object.keys(grupos).filter(k => grupos[k].length);
-    if (!ks.length) break;
-    const soma = ks.reduce((s, k) => s + (pesos[k] || .05), 0);
-    let melhor = ks[0], falta = -Infinity;
-    for (const k of ks) { const d = (pesos[k] || .05) / soma * (total + 1) - (conta[k] || 0); if (d > falta) { falta = d; melhor = k; } }
-    saida.push(tirar(grupos[melhor]).id);
-    conta[melhor] = (conta[melhor] || 0) + 1; total++;
-  }
-  return saida;
+  return saida.concat(ordenados.slice(0, n).map(v => v.id));
 }
 
 function filaAtual() {
@@ -765,6 +875,7 @@ function ligarOlho() {
   document.body.classList.remove('ui');
   document.body.classList.add('olho');
   estado.som = true; salvar(); atualizarBotaoSom();
+  liveAntesDoOlho = live;
   if (!live) alternarLive();
   else { try { ativo._player && ativo._player.unMute(); ativo._player && ativo._player.playVideo(); } catch {} }
   entrarTelaCheia();
@@ -775,7 +886,36 @@ document.getElementById('botao-olho').onclick = ligarOlho;
 for (const t of ['touchstart', 'touchmove', 'wheel', 'pointerdown', 'mousedown', 'contextmenu', 'dblclick'])
   trava.addEventListener(t, e => { e.preventDefault(); e.stopPropagation(); }, { passive: false });
 for (const t of ['click', 'touchend'])
-  trava.addEventListener(t, e => { e.preventDefault(); e.stopPropagation(); entrarTelaCheia(); }, { passive: false });
+  trava.addEventListener(t, e => { e.preventDefault(); e.stopPropagation(); toqueNaTrava(); }, { passive: false });
+
+// A saida: 10 toques em ate 5 segundos fazem aparecer o cadeado. Ele fica 5 segundos e some. Tocou nele, sai do Olho.
+let liveAntesDoOlho = false, toques = [], timerCadeado;
+const cadeado = document.getElementById('cadeado');
+function toqueNaTrava() {
+  const agora = Date.now();
+  if (toques.length && agora - toques[toques.length - 1] < 60) return;   // o mesmo toque chegando duas vezes
+  toques = toques.filter(t => agora - t < 5000);
+  toques.push(agora);
+  entrarTelaCheia();
+  if (toques.length >= 10) {
+    toques = [];
+    cadeado.classList.add('mostrar');
+    clearTimeout(timerCadeado);
+    timerCadeado = setTimeout(() => cadeado.classList.remove('mostrar'), 5000);
+  }
+}
+function desligarOlho() {
+  olho = false;
+  clearTimeout(timerCadeado);
+  cadeado.classList.remove('mostrar');
+  document.body.classList.remove('olho');
+  try { if (travaTela) travaTela.release(); } catch {}
+  travaTela = null;
+  if (live && !liveAntesDoOlho) alternarLive();
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  mostrarUI();
+}
+cadeado.addEventListener('click', e => { e.stopPropagation(); desligarOlho(); });
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') manterTelaAcesa(); });
 
 document.addEventListener('keydown', e => {
@@ -974,7 +1114,7 @@ async function carregarFontes() {
   for (const extra of FONTES_EXTRAS) {
     try { const rx = await fetch(extra, { cache: 'no-store' }); if (rx.ok) lista.push(...await rx.json()); } catch {}
   }
-  lista.push(...FONTES_CULTURA);
+  lista.push(...FONTES_CULTURA, ...FONTES_EDITORIAS);
   fontes = lista;
   return fontes;
 }
@@ -994,7 +1134,8 @@ async function coletarTudo() {
           const r = f.feed ? await coletarPodcast(f) : await coletarCanal(f);
           // campos extras da fonte (ex.: "elmundo") passam direto pro item
           const { nome, handle, busca, id, feed, regiao, tipo, ...extras } = f;
-          const limite = f.estante === true || f.abas ? corteCultura : corte;
+          const quente = (f.abas || []).some(a => ABAS_QUENTES.includes(a));
+          const limite = (f.estante === true || f.abas) && !quente ? corteCultura : corte;
           const lista = r.itens.filter(v => v.ts > limite)
             .map(v => ({ ...v, ...extras, veiculo: f.nome, regiao: f.regiao || 'outros', fonte: f.tipo || 'jornal' }));
           todos.push(...lista);
@@ -1087,7 +1228,8 @@ document.addEventListener('visibilitychange', () => {
 const NOMES_REGIAO = {
   brasil: '🇧🇷 Brasil', estados: '📍 Estados', poder: '🏛️ Brasília', eua: '🇺🇸 Estados Unidos', china: '🇨🇳 China',
   russia: '🇷🇺 Rússia', europa: '🇪🇺 Europa', latam: '🌎 América Latina', outros: '🌍 Outros', cultura: '📚 Estante',
-  classica: '🎻 Clássica', longos: '🎼 Longos', pensar: '🦉 Pensar', dsac: '🎁 Dsac'
+  classica: '🎻 Clássica', longos: '🎼 Longos', pensar: '🦉 Pensar', dsac: '🎁 Dsac',
+  futebol: '⚽ Futebol', politica: '🌍 Política', intelecto: '🧠 Intelecto', curiosidades: '🔎 Curiosidades'
 };
 function abrirStatus() {
   const grupos = {};
