@@ -114,8 +114,17 @@
 
   #novas { position: fixed; z-index: 12; top: 64px; left: 50%; transform: translateX(-50%); display: none;
            border: 0; border-radius: 999px; padding: 9px 18px; background: var(--vermelho); color: #fff;
-           font-size: 14px; font-weight: 700; box-shadow: 0 6px 24px rgba(0,0,0,.5); }
+           font-size: 14px; font-weight: 700; box-shadow: 0 6px 24px rgba(0,0,0,.5); white-space: nowrap; }
   #novas.mostrar { display: block; }
+
+  /* 👁 Olho: tela travada. So o video e o aviso de novidade aparecem */
+  #trava { display: none; position: fixed; inset: 0; z-index: 30; touch-action: none; background: transparent; }
+  body.olho #trava { display: block; }
+  body.olho { cursor: none; }
+  body.olho #feed { overflow: hidden; }
+  body.olho #topo, body.olho #selo-live, body.olho #progresso, body.olho #toast, body.olho #icone-play, body.olho #painel, body.olho .info { display: none !important; }
+  body.olho #novas.mostrar { z-index: 31; opacity: 1; pointer-events: auto; cursor: pointer; }
+  .chip.olho { border-color: rgba(120,200,255,.55); }
 
   #progresso { position: fixed; z-index: 12; left: 50%; bottom: 18px; transform: translateX(-50%); display: none;
                padding: 8px 16px; border-radius: 999px; background: var(--vidro); border: 1px solid var(--borda);
@@ -150,6 +159,7 @@
 <div id="topo">
   <button class="chip" data-modo="tudo">Tudo</button>
   <button class="chip" data-modo="breaking">⚡ Breaking News</button>
+  <button class="chip" data-modo="vertical">📱 Todos Curtos</button>
   <button class="chip" data-modo="brasil">🇧🇷 Brasil</button>
   <button class="chip" data-modo="brzao">BRzão</button>
   <button class="chip" data-modo="poder">🏛️ Brasília</button>
@@ -164,6 +174,7 @@
   <button class="chip" data-modo="pensar">🦉 Pensar</button>
   <button class="chip dsac" data-modo="dsac">🎁 Dsac</button>
   <button class="chip live" id="botao-live">🔴 Live</button>
+  <button class="chip olho" id="botao-olho">👁 Olho</button>
   <span class="sep"></span>
   <button class="chip" id="pausa">⏸</button>
   <button class="chip" id="som">🔇</button>
@@ -179,6 +190,7 @@
 <div id="progresso"></div>
 <div id="toast"></div>
 <div id="painel"><div class="caixa"></div></div>
+<div id="trava"></div>
 
 <script>
 // 🎻🎼🦉📚🎁 os 135 canais das abas de cultura moram aqui dentro (com os IDs ja descobertos)
@@ -419,6 +431,8 @@ function haQuanto(ts) {
 function cultural(v) { return v.estante === true || !!v.abas; }
 function abasDe(v) { const a = v.abas || [], x = ABAS_EXTRA[v.veiculo]; return x ? a.concat(x) : a; }
 function passa(v, m) {
+  // 📱 Todos Curtos: todo video vertical de todas as fontes (noticia, estados, Brasilia, cultura, Dsac), do mais novo pro mais velho
+  if (m === 'vertical') return v.tipo === 'curto';
   // BRzão: todo canal brasileiro (noticia, estados, Brasilia e a cultura brasileira), so video curto. O Dsac fica de fora: presente nao se mistura
   if (m === 'brzao') return v.tipo === 'curto' && (cultural(v)
     ? (v.lingua || v.grupo) === 'br' && !abasDe(v).includes('dsac')
@@ -713,6 +727,7 @@ function alternarLive() {
 // Deslizar pra cima ou pra baixo troca de video sem mostrar nada.
 const UI_SEGUNDOS = 4;
 function mostrarUI() {
+  if (olho) return;   // no Olho os botoes nunca aparecem
   document.body.classList.add('ui');
   clearTimeout(timerUI);
   timerUI = setTimeout(esconderUI, UI_SEGUNDOS * 1000);
@@ -731,7 +746,44 @@ topo.addEventListener('wheel', e => {
   e.preventDefault(); topo.scrollLeft += e.deltaY; mostrarUI();
 }, { passive: false });
 // atalhos de teclado no computador: espaço pausa, M som, F tela cheia, L live, ↑ ↓ troca de video
+// ---------- 👁 Olho ----------
+// Trava tudo: tela cheia, Live ligado, som ligado, nenhum botao, nenhum deslize, nenhuma tecla.
+// A unica coisa que responde ao toque e o aviso de novidades. Pra sair: recarregar a pagina ou sair do navegador.
+let olho = false, travaTela = null;
+const trava = document.getElementById('trava');
+function entrarTelaCheia() {
+  const el = document.documentElement;
+  if (!document.fullscreenElement && el.requestFullscreen) el.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
+}
+async function manterTelaAcesa() {   // a tela nao apaga enquanto o Olho estiver ligado
+  try { if (olho && 'wakeLock' in navigator && (!travaTela || travaTela.released)) travaTela = await navigator.wakeLock.request('screen'); } catch {}
+}
+function ligarOlho() {
+  if (!ativo) { toast('Não tem vídeo nesta aba pra assistir.'); return; }
+  olho = true;
+  clearTimeout(timerUI);
+  document.body.classList.remove('ui');
+  document.body.classList.add('olho');
+  estado.som = true; salvar(); atualizarBotaoSom();
+  if (!live) alternarLive();
+  else { try { ativo._player && ativo._player.unMute(); ativo._player && ativo._player.playVideo(); } catch {} }
+  entrarTelaCheia();
+  manterTelaAcesa();
+}
+document.getElementById('botao-olho').onclick = ligarOlho;
+// a trava engole todo toque, deslize, clique e rodinha. Se a tela cheia cair (botao voltar, Esc), um toque volta pra ela
+for (const t of ['touchstart', 'touchmove', 'wheel', 'pointerdown', 'mousedown', 'contextmenu', 'dblclick'])
+  trava.addEventListener(t, e => { e.preventDefault(); e.stopPropagation(); }, { passive: false });
+for (const t of ['click', 'touchend'])
+  trava.addEventListener(t, e => { e.preventDefault(); e.stopPropagation(); entrarTelaCheia(); }, { passive: false });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') manterTelaAcesa(); });
+
 document.addEventListener('keydown', e => {
+  if (olho) {   // no Olho nenhuma tecla faz nada (so recarregar a pagina, que e a saida)
+    const recarregar = e.key === 'F5' || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'r');
+    if (!recarregar) { e.preventDefault(); e.stopPropagation(); }
+    return;
+  }
   if (e.ctrlKey || e.altKey || e.metaKey || /INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
   const k = e.key.toLowerCase();
   if (k === ' ') { e.preventDefault(); alternarPausa(); }
